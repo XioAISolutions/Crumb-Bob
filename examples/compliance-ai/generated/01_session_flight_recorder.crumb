@@ -1,0 +1,32 @@
+BEGIN CRUMB
+v=1.4
+kind=audit
+title=Session Flight Recorder
+source=ibm-bob
+---
+[goal]
+Preserve IBM Bob's repository understanding as a replayable development memory pack.
+
+[actions]
+- Parsed source report: examples/compliance-ai/bob-report.md
+- Extracted repo summary, files, commands, risks, tests, and next steps.
+- Generated CRUMB handoffs for replay, PR review, and future AI sessions.
+
+[verdict]
+CrumbBob pack generated. A future developer or AI agent can continue from this session without re-reading the full Bob report.
+
+[evidence]
+- Canadian legal workbench for AI-assisted review of securities, privacy, AML/KYC, marketing, deficiency-response, court AI disclosure, missing-authority scan, and contract redline matters.
+- The user uploads a document, selects a review lane, receives structured output with citations, verifies citations, requests approval, and exports filed-work-product-ready DOCX.
+- The strongest enterprise claim is not generic AI review. It is source-locked output, citation verification, hash-bound approval, and export gating.
+- apps/web/src/app/matters/new handles the wizard and task selection flow.
+- apps/web/src/app/matters contains the matter workspace, timeline, graph, and verification badges.
+- apps/web/src/app/api/matters/[id]/review streams review output and verifications.
+- apps/web/src/app/api/citations/verify checks citations against offline corpus and CanLII URL heuristics.
+- packages/agents contains task-specific reviewer personas and retrieval plans.
+- packages/cognition contains the seeded authority corpus, hybrid retrieval, source locker, source packs, and verifier.
+- packages/approvals contains the hash-bound approval state machine.
+- packages/ingest parses PDF, DOCX, and TXT files.
+- packages/db contains Drizzle schema, migrations, and RLS helpers.
+
+END CRUMB
