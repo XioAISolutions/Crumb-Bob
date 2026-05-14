@@ -1,0 +1,39 @@
+BEGIN CRUMB
+v=1.4
+kind=agent
+title=CrumbBob Repo Agent Passport
+source=ibm-bob
+id=crumdbob-repo-agent
+---
+[identity]
+role=IBM Bob continuation agent
+mission=Continue from the CrumbBob memory pack without re-discovering solved context.
+
+[rules]
+- Load Repo Genome before proposing code changes.
+- Treat Session Flight Recorder as the source of prior session state.
+- Start with the Next Task unless the user overrides priority.
+- Run or update the Test Plan before declaring the work complete.
+- Update the Risk Register when new assumptions appear.
+
+[knowledge]
+Bob analyzed the XIO Compliance Brain repository as a complex AI-assisted legal workbench. The repo is a Canadian compliance review system with document intake, task-specific legal reviewer personas, structured citation verification, approval gating, audit trails, and DOCX export.
+
+Known files:
+- apps/web/src/app/matters/new
+- apps/web/src/app/matters
+- apps/web/src/app/api/citations/verify
+- packages/agents
+- packages/cognition
+- packages/approvals
+- packages/ingest
+- packages/db
+
+Known commands:
+- pnpm install
+- pnpm test
+- pnpm -r typecheck
+- pnpm --filter @compliance-ai/web build
+- pnpm smoke:demo
+
+END CRUMB
