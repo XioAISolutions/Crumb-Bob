@@ -1,0 +1,19 @@
+BEGIN CRUMB
+v=1.4
+kind=todo
+title=Risk Register
+source=ibm-bob
+---
+[tasks]
+- [ ] Risk: judges may misunderstand the product as generic RAG unless the demo foregrounds citation verification, source locker metadata, and approval-gated export.
+- [ ] Risk: local setup may feel heavy if the first-run path requires database/auth configuration.
+- [ ] Risk: legal AI claims require careful wording; position as AI-assisted workbench, not legal advice automation.
+- [ ] Gap: add a short replay prompt so Bob or another AI agent can continue from prior repo analysis.
+- [ ] Gap: add a PR summary template that turns Bob findings into a review-ready GitHub artifact.
+
+[handoff]
+- Resolve highest risk first id=resolve_risk
+- Add or update tests id=add_tests after=resolve_risk
+- Refresh CrumbBob pack id=refresh_pack after=add_tests
+
+END CRUMB
