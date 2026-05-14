@@ -1,0 +1,40 @@
+BEGIN CRUMB
+v=1.4
+kind=map
+title=Repo Genome: IBM Bob Report: XIO Compliance Brain
+source=ibm-bob
+---
+[project]
+Bob analyzed the XIO Compliance Brain repository as a complex AI-assisted legal workbench. The repo is a Canadian compliance review system with document intake, task-specific legal reviewer personas, structured citation verification, approval gating, audit trails, and DOCX export.
+
+[modules]
+- AML/KYC
+- apps/web/src/app/matters/new
+- apps/web/src/app/matters
+- apps/web/src/app/api/citations/verify
+- packages/agents
+- packages/cognition
+- packages/approvals
+- packages/ingest
+- packages/db
+- @compliance-ai/web
+- database/auth
+- AI/dev
+
+[commands]
+- pnpm install
+- pnpm test
+- pnpm -r typecheck
+- pnpm --filter @compliance-ai/web build
+- pnpm smoke:demo
+- pnpm test to validate agents, cognition, and web behavior.
+- pnpm -r typecheck to validate the monorepo TypeScript surface.
+- pnpm --filter @compliance-ai/web build before any hosted demo.
+- pnpm smoke:demo against the deployed or local app.
+
+[handoff]
+- Load this Repo Genome first id=load_genome
+- Read the Session Flight Recorder id=read_session after=load_genome
+- Execute the Next Task id=execute_task after=read_session
+
+END CRUMB
