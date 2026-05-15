@@ -12,6 +12,18 @@ Bob report + repo metadata + test output + git diff
   -> Agent Passport + Replay Prompt + PR Summary + Proof Chain
 ```
 
+## ✨ Features
+
+- 🎨 **Beautiful Rich Terminal UI** - Professional, color-coded output with tables, panels, and progress bars
+- 🌐 **Interactive Web Dashboard** - Modern web UI for visualizing sessions, insights, patterns, and trends
+- 🤖 **AI-Powered Analysis** - LLM integration for intelligent insights, risk categorization, and recommendations
+- 📦 **Smart Pack Generation** - Auto-collect artifacts from Git repos with visual feedback
+- 🔍 **Multi-Session Memory** - SQLite database tracks patterns across development sessions
+- 🧠 **Intelligence Engine** - Insights, predictions, pattern detection, and natural language queries
+- 👁️ **Watch Mode** - Real-time monitoring of Bob reports with live updates
+- ✅ **Validation & Verification** - Comprehensive pack validation with detailed error reporting
+- 📊 **Trend Analysis** - Visualize hot files, recurring risks, and command patterns
+
 ## Quickstart
 
 ### Installation
@@ -23,7 +35,7 @@ Bob report + repo metadata + test output + git diff
 python3 -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install CrumbBob in editable mode with dev dependencies
+# Install CrumbBob with all features (includes rich terminal UI)
 pip install -e .[dev]
 
 # Verify installation
@@ -35,6 +47,33 @@ crumdbob --help
 ```bash
 pip install -e .[watch]
 ```
+
+**Optional: Install web dashboard**
+
+```bash
+pip install fastapi uvicorn[standard]
+# Or install with CrumbBob extras
+pip install -e .[web]
+```
+
+**Optional: Install AI-powered analysis (LLM)**
+
+```bash
+# Install LLM support (OpenAI, Anthropic)
+pip install -e .[llm]
+
+# Or install all features
+pip install -e .[all]
+
+# Configure LLM provider
+export OPENAI_API_KEY="sk-..."
+crumdbob llm setup openai --model gpt-4
+
+# Verify LLM status
+crumdbob llm status
+```
+
+See [LLM Integration Guide](docs/llm-integration.md) for detailed setup instructions.
 
 ### Quick Test
 
@@ -62,6 +101,36 @@ crumdbob auto-collect --out ./generated
 
 ```bash
 crumdbob watch ./crumdbob-input --out ./generated
+```
+
+**Quick Win: Launch web dashboard:**
+
+```bash
+# Initialize database (first time only)
+crumdbob init-db
+
+# Record some sessions
+crumdbob record ./generated
+
+# Start web dashboard
+crumdbob serve
+# Opens browser at http://localhost:8000
+```
+
+**Quick Win: AI-powered analysis:**
+
+```bash
+# Analyze a session with AI
+crumdbob llm analyze 1
+
+# Get AI recommendations
+crumdbob llm recommend 1
+
+# Explain a pattern
+crumdbob llm explain "Recurring SQL injection risks"
+
+# Check LLM status and cache stats
+crumdbob llm status
 ```
 
 Single-file compatibility path:

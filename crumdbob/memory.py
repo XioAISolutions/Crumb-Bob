@@ -271,6 +271,34 @@ class MemoryDatabase:
             )
         """)
         
+        # LLM cache table (for caching LLM responses)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS llm_cache (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                prompt_hash TEXT NOT NULL UNIQUE,
+                prompt TEXT NOT NULL,
+                response TEXT NOT NULL,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                tokens_used INTEGER,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # LLM config table (for storing LLM provider configuration)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS llm_config (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                provider TEXT NOT NULL,
+                model TEXT NOT NULL,
+                api_key_env TEXT NOT NULL,
+                temperature REAL DEFAULT 0.7,
+                max_tokens INTEGER DEFAULT 2000,
+                enabled INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
         # Create indexes for performance
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_timestamp ON sessions(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_git_branch ON sessions(git_branch)")
@@ -288,6 +316,9 @@ class MemoryDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_relationships_session_id ON relationships(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_insights_session_id ON insights(session_id)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_cache_prompt_hash ON llm_cache(prompt_hash)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_cache_created_at ON llm_cache(created_at)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_config_enabled ON llm_config(enabled)")
         
         # Create views for common queries
         cursor.execute("""
@@ -848,6 +879,123 @@ class MemoryDatabase:
             "open_risks": open_risks,
             "unique_commands": unique_commands,
         }
+    
+    def save_llm_config(
+        self,
+        provider: str,
+        model: str,
+        api_key_env: str,
+        temperature: float = 0.7,
+        max_tokens: int = 2000,
+        enabled: bool = True
+    ) -> int:
+        """Save LLM configuration to database.
+        
+        Args:
+            provider: LLM provider (openai, anthropic, local)
+            model: Model name
+            api_key_env: Environment variable name for API key
+            temperature: Temperature setting
+            max_tokens: Max tokens setting
+            enabled: Whether configuration is enabled
+            
+        Returns:
+            Configuration ID
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            INSERT INTO llm_config (provider, model, api_key_env, temperature, max_tokens, enabled)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (provider, model, api_key_env, temperature, max_tokens, 1 if enabled else 0))
+        self.conn.commit()
+        return cursor.lastrowid
+    
+    def get_llm_config(self) -> dict[str, Any] | None:
+        """Get active LLM configuration.
+        
+        Returns:
+            Configuration dict or None if not configured
+        """
+        cursor = self.conn.cursor()
+        cursor.execute("""
+            SELECT provider, model, api_key_env, temperature, max_tokens
+            FROM llm_config
+            WHERE enabled = 1
+            ORDER BY id DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        return dict(row) if row else None
+    
+    def update_llm_config(self, config_id: int, **kwargs: Any) -> None:
+        """Update LLM configuration.
+        
+        Args:
+            config_id: Configuration ID
+            **kwargs: Fields to update
+        """
+        allowed_fields = {"provider", "model", "api_key_env", "temperature", "max_tokens", "enabled"}
+        updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
+        
+        if not updates:
+            return
+        
+        set_clause = ", ".join(f"{k} = ?" for k in updates.keys())
+        values = list(updates.values()) + [config_id]
+        
+        cursor = self.conn.cursor()
+        cursor.execute(f"UPDATE llm_config SET {set_clause} WHERE id = ?", values)
+        self.conn.commit()
+    
+    def get_llm_cache_stats(self) -> dict[str, Any]:
+        """Get LLM cache statistics.
+        
+        Returns:
+            Dict with cache stats
+        """
+        cursor = self.conn.cursor()
+        
+        cursor.execute("SELECT COUNT(*) as n FROM llm_cache")
+        total_cached = cursor.fetchone()["n"]
+        
+        cursor.execute("SELECT SUM(tokens_used) as n FROM llm_cache WHERE tokens_used IS NOT NULL")
+        total_tokens = cursor.fetchone()["n"] or 0
+        
+        cursor.execute("""
+            SELECT provider, COUNT(*) as count
+            FROM llm_cache
+            GROUP BY provider
+        """)
+        by_provider = {row["provider"]: row["count"] for row in cursor.fetchall()}
+        
+        return {
+            "total_cached": total_cached,
+            "total_tokens_saved": total_tokens,
+            "by_provider": by_provider
+        }
+    
+    def clear_llm_cache(self, older_than_days: int | None = None) -> int:
+        """Clear LLM cache.
+        
+        Args:
+            older_than_days: Only clear entries older than this many days (None = all)
+            
+        Returns:
+            Number of entries cleared
+        """
+        cursor = self.conn.cursor()
+        
+        if older_than_days is None:
+            cursor.execute("DELETE FROM llm_cache")
+        else:
+            cursor.execute("""
+                DELETE FROM llm_cache
+                WHERE created_at < datetime('now', '-' || ? || ' days')
+            """, (older_than_days,))
+        
+        deleted = cursor.rowcount
+        self.conn.commit()
+        return deleted
 
     @staticmethod
     def _hash_content(content: str) -> str:

@@ -20,6 +20,17 @@ from .memory import (
 from .patterns import create_pattern_detector
 from .predict import create_prediction_engine
 from .query import create_query_engine
+from .ui import (
+    display_pack_summary,
+    display_validation_results,
+    display_session_info,
+    display_sessions_table,
+    display_insights,
+    display_trends,
+    display_query_results,
+    display_patterns,
+    display_predictions,
+)
 
 from .packer import read_pr_summary, read_replay_prompt, write_pack, write_pack_from_directory
 from .parser import parse_bob_report
@@ -48,10 +59,9 @@ def cmd_import(args: argparse.Namespace) -> int:
 
 def cmd_pack(args: argparse.Namespace) -> int:
     written = write_pack_from_directory(args.input_dir, args.out)
-    for path in written:
-        print(path)
     
     # Auto-record to database if requested or configured
+    session_id = None
     should_record = (hasattr(args, 'record') and args.record) or should_auto_record()
     if should_record:
         db_path = Path(args.db) if hasattr(args, 'db') and args.db else get_database_path()
@@ -60,9 +70,11 @@ def cmd_pack(args: argparse.Namespace) -> int:
                 pack_dir=args.out,
                 db_path=db_path,
             )
-            print(f"✓ Recorded to database: Session #{session_id}")
         except Exception as exc:
             print(f"Warning: Failed to record to database: {exc}", file=sys.stderr)
+    
+    # Display beautiful pack summary
+    display_pack_summary(args.out, written, session_id)
     
     return 0
 
@@ -103,13 +115,11 @@ def cmd_pr(args: argparse.Namespace) -> int:
 
 def cmd_validate(args: argparse.Namespace) -> int:
     report = validate_target(args.target)
-    if report.ok:
-        print(f"OK: {len(report.documents)} CRUMB file(s) valid")
-        return 0
-    for error in report.errors:
-        print(error.format(), file=sys.stderr)
-    print(f"FAILED: {len(report.errors)} validation error(s)", file=sys.stderr)
-    return 1
+    
+    # Display beautiful validation results
+    display_validation_results(report)
+    
+    return 0 if report.ok else 1
 
 
 def _proof_source_present(pack_dir: Path) -> bool:
@@ -428,14 +438,8 @@ def cmd_list_sessions(args: argparse.Namespace) -> int:
                     })
                 print(json.dumps(output, indent=2))
             else:
-                # Table output
-                print(f"Found {len(sessions)} session(s):\n")
-                print(f"{'ID':<6} {'Timestamp':<20} {'Name':<25} {'Branch':<20} {'Files':<6} {'Risks':<6}")
-                print("-" * 100)
-                for session in sessions:
-                    name = session.session_name or "(unnamed)"
-                    branch = session.git_branch or "-"
-                    print(f"{session.id:<6} {session.timestamp[:19]:<20} {name[:24]:<25} {branch[:19]:<20} {session.file_count:<6} {session.risk_count:<6}")
+                # Display beautiful sessions table
+                display_sessions_table(sessions)
         
         return 0
     except Exception as exc:
@@ -540,33 +544,13 @@ def cmd_trends(args: argparse.Namespace) -> int:
     try:
         with MemoryDatabase(db_path) as db:
             stats = db.get_stats()
-            print("CrumbBob Memory Trends")
-            print("=" * 50)
-            print(f"Sessions recorded : {stats['session_count']}")
-            print(f"Unique files seen  : {stats['unique_files']}")
-            print(f"Open risks         : {stats['open_risks']}")
-            print(f"Unique commands    : {stats['unique_commands']}")
-
             min_sessions = getattr(args, "min_sessions", 1)
-
             hot = db.get_hot_files(min_sessions=min_sessions)
-            if hot:
-                print(f"\nHot Files (seen in {min_sessions}+ session(s)):")
-                for f in hot[:15]:
-                    print(f"  {f['session_count']:>3}x  {f['path']}")
-
             recurring = db.get_recurring_risks(min_sessions=min_sessions)
-            if recurring:
-                print(f"\nRecurring Risks (seen in {min_sessions}+ session(s)):")
-                for r in recurring[:10]:
-                    tag = f"[{r['status']}]"
-                    print(f"  {r['session_count']:>3}x  {tag:<12} {r['description'][:72]}")
-
             commands = db.get_command_frequency()
-            if commands:
-                print("\nTop Commands (by total mentions):")
-                for c in commands[:10]:
-                    print(f"  {c['total_mentions']:>3}x  {c['command'][:72]}")
+            
+            # Display beautiful trends
+            display_trends(stats, hot, recurring, commands)
 
         return 0
     except Exception as exc:
@@ -660,34 +644,14 @@ def cmd_query(args: argparse.Namespace) -> int:
                 print("Error: Unknown query type", file=sys.stderr)
                 return 1
             
-            # Display results
-            print(f"Query: {result.explanation}")
-            print(f"Results: {result.row_count} row(s)\n")
+            # Determine output format
+            format_type = args.format if hasattr(args, 'format') else "table"
             
-            if result.row_count > 0:
-                # Determine output format
-                format_type = args.format if hasattr(args, 'format') else "table"
-                
-                if format_type == "json":
-                    print(json.dumps(result.results, indent=2))
-                else:
-                    # Table format
-                    if result.results:
-                        # Get column names
-                        columns = list(result.results[0].keys())
-                        
-                        # Print header
-                        header = " | ".join(str(col)[:20] for col in columns)
-                        print(header)
-                        print("-" * len(header))
-                        
-                        # Print rows
-                        for row in result.results[:50]:  # Limit to 50 rows
-                            values = [str(row.get(col, ""))[:20] for col in columns]
-                            print(" | ".join(values))
-                        
-                        if result.row_count > 50:
-                            print(f"\n... and {result.row_count - 50} more rows")
+            if format_type == "json":
+                print(json.dumps(result.results, indent=2))
+            else:
+                # Display beautiful query results
+                display_query_results(result)
             
             return 0
     except Exception as exc:
@@ -713,15 +677,9 @@ def cmd_insights(args: argparse.Namespace) -> int:
                 insights = insights_engine.generate_insights()
                 print(f"✓ Generated {len(insights)} insights")
                 
-                # Show top insights
+                # Display top insights with beautiful UI
                 if insights:
-                    print("\nTop Insights:")
-                    for insight in insights[:5]:
-                        severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(insight.severity, "⚪")
-                        print(f"\n{severity_icon} [{insight.severity.upper()}] {insight.title}")
-                        print(f"   Confidence: {insight.confidence:.0%}")
-                        if insight.recommendations:
-                            print(f"   → {insight.recommendations[0]}")
+                    display_insights(insights[:5])
                 
                 return 0
             
@@ -734,15 +692,8 @@ def cmd_insights(args: argparse.Namespace) -> int:
                     print("No insights found.")
                     return 0
                 
-                print(f"Found {len(insights)} insight(s):\n")
-                
-                for insight in insights:
-                    severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(insight.severity, "⚪")
-                    print(f"{severity_icon} [{insight.severity.upper()}] {insight.title}")
-                    print(f"   Type: {insight.insight_type}")
-                    print(f"   Confidence: {insight.confidence:.0%}")
-                    print(f"   Created: {insight.created_at[:19]}")
-                    print()
+                # Display beautiful insights
+                display_insights(insights)
                 
                 return 0
             
@@ -754,17 +705,8 @@ def cmd_insights(args: argparse.Namespace) -> int:
                     print("No insights found.")
                     return 0
                 
-                print(f"Top {len(insights)} Insights:\n")
-                
-                for i, insight in enumerate(insights, 1):
-                    severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(insight.severity, "⚪")
-                    print(f"{i}. {severity_icon} [{insight.severity.upper()}] {insight.title}")
-                    print(f"   Confidence: {insight.confidence:.0%}")
-                    if insight.recommendations:
-                        print(f"   Recommendations:")
-                        for rec in insight.recommendations[:3]:
-                            print(f"     • {rec}")
-                    print()
+                # Display beautiful insights
+                display_insights(insights)
                 
                 return 0
             
@@ -776,17 +718,8 @@ def cmd_insights(args: argparse.Namespace) -> int:
                     print("No actionable insights found.")
                     return 0
                 
-                print(f"Found {len(insights)} actionable insight(s):\n")
-                
-                for insight in insights:
-                    severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(insight.severity, "⚪")
-                    print(f"{severity_icon} [{insight.severity.upper()}] {insight.title}")
-                    print(f"   {insight.description}")
-                    if insight.recommendations:
-                        print(f"   Recommendations:")
-                        for rec in insight.recommendations:
-                            print(f"     • {rec}")
-                    print()
+                # Display beautiful insights
+                display_insights(insights)
                 
                 return 0
         
@@ -921,21 +854,8 @@ def cmd_patterns(args: argparse.Namespace) -> int:
                     print(f"Error: Unknown pattern type: {pattern_type}", file=sys.stderr)
                     return 1
                 
-                print(f"✓ Detected {len(patterns)} pattern(s)\n")
-                
-                # Group by type
-                by_type: dict[str, list] = {}
-                for pattern in patterns:
-                    by_type.setdefault(pattern.pattern_type, []).append(pattern)
-                
-                for ptype, plist in sorted(by_type.items()):
-                    print(f"\n{ptype.replace('_', ' ').title()} ({len(plist)}):")
-                    for pattern in plist[:5]:  # Show first 5 of each type
-                        severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(pattern.severity, "⚪")
-                        print(f"  {severity_icon} {pattern.description}")
-                        print(f"     Confidence: {pattern.confidence:.0%}, Frequency: {pattern.frequency}")
-                    if len(plist) > 5:
-                        print(f"  ... and {len(plist) - 5} more")
+                # Display beautiful patterns
+                display_patterns(patterns)
                 
                 return 0
             
@@ -1040,6 +960,301 @@ def cmd_dashboard(args: argparse.Namespace) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
 
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Start the web dashboard server."""
+    try:
+        # Import here to avoid requiring FastAPI for other commands
+        from web.api.server import run_server
+    except ImportError:
+        print("Error: FastAPI not installed. Install with: pip install 'crumdbob[web]'", file=sys.stderr)
+        print("Or: pip install fastapi uvicorn[standard]", file=sys.stderr)
+        return 1
+    
+    db_path = Path(args.db) if args.db else get_default_db_path()
+    
+    if not db_path.exists():
+        print(f"Warning: Database not found: {db_path}")
+        print("The server will start, but you may need to create the database first.")
+        print(f"Run: crumdbob init-db --db {db_path}")
+        print()
+    
+    host = args.host
+    port = args.port
+    no_browser = args.no_browser
+    
+    print(f"🧠 CrumbBob Web Dashboard")
+    print(f"   Database: {db_path}")
+    print(f"   Server: http://{host}:{port}")
+    print()
+    
+    try:
+        run_server(
+            host=host,
+            port=port,
+            db_path=db_path,
+            open_browser=not no_browser,
+        )
+        return 0
+    except KeyboardInterrupt:
+        print("\n\nServer stopped.")
+        return 0
+    except Exception as exc:
+        print(f"Error starting server: {exc}", file=sys.stderr)
+        return 1
+
+def cmd_llm(args: argparse.Namespace) -> int:
+    """LLM-powered analysis commands."""
+    db_path = Path(args.db) if args.db else get_default_db_path()
+    
+    if not db_path.exists() and args.llm_command != "setup":
+        print(f"Error: Database not found: {db_path}", file=sys.stderr)
+        return 1
+    
+    try:
+        if args.llm_command == "setup":
+            # Setup LLM configuration
+            from .llm import LLMProvider
+            
+            provider = args.provider
+            model = args.model
+            
+            # Determine API key environment variable
+            if provider == "openai":
+                api_key_env = "OPENAI_API_KEY"
+                default_model = "gpt-4"
+            elif provider == "anthropic":
+                api_key_env = "ANTHROPIC_API_KEY"
+                default_model = "claude-3-sonnet-20240229"
+            else:
+                print(f"Error: Unsupported provider: {provider}", file=sys.stderr)
+                return 1
+            
+            if not model:
+                model = default_model
+            
+            # Check if API key is set
+            import os
+            if not os.getenv(api_key_env):
+                print(f"⚠️  Warning: {api_key_env} environment variable not set", file=sys.stderr)
+                print(f"   Set it with: export {api_key_env}=your-api-key", file=sys.stderr)
+            
+            # Save configuration to database
+            with MemoryDatabase(db_path) as db:
+                db.init_database()  # Ensure tables exist
+                config_id = db.save_llm_config(
+                    provider=provider,
+                    model=model,
+                    api_key_env=api_key_env,
+                    temperature=args.temperature if hasattr(args, 'temperature') else 0.7,
+                    max_tokens=args.max_tokens if hasattr(args, 'max_tokens') else 2000
+                )
+            
+            print(f"✓ LLM configured: {provider}/{model}")
+            print(f"  Configuration ID: {config_id}")
+            print(f"  API Key: ${api_key_env}")
+            print(f"\nTo use LLM features, ensure your API key is set:")
+            print(f"  export {api_key_env}=your-api-key")
+            
+            return 0
+        
+        elif args.llm_command == "status":
+            # Show LLM status and configuration
+            with MemoryDatabase(db_path) as db:
+                config = db.get_llm_config()
+                
+                if not config:
+                    print("❌ LLM not configured")
+                    print("\nRun 'crumdbob llm setup' to configure LLM integration.")
+                    return 1
+                
+                print("🤖 LLM Configuration")
+                print("=" * 60)
+                print(f"Provider: {config['provider']}")
+                print(f"Model: {config['model']}")
+                print(f"API Key: ${config['api_key_env']}")
+                print(f"Temperature: {config['temperature']}")
+                print(f"Max Tokens: {config['max_tokens']}")
+                
+                # Check if API key is set
+                import os
+                api_key = os.getenv(config['api_key_env'])
+                if api_key:
+                    print(f"Status: ✓ API key is set")
+                else:
+                    print(f"Status: ❌ API key not set")
+                    print(f"\nSet it with: export {config['api_key_env']}=your-api-key")
+                
+                # Show cache stats
+                cache_stats = db.get_llm_cache_stats()
+                print(f"\n📊 Cache Statistics")
+                print(f"Cached responses: {cache_stats['total_cached']}")
+                print(f"Tokens saved: {cache_stats['total_tokens_saved']:,}")
+                
+                if cache_stats['by_provider']:
+                    print(f"\nBy provider:")
+                    for provider, count in cache_stats['by_provider'].items():
+                        print(f"  {provider}: {count}")
+            
+            return 0
+        
+        elif args.llm_command == "analyze":
+            # Analyze a session with LLM
+            from .llm import create_llm_analyzer
+            
+            with MemoryDatabase(db_path) as db:
+                analyzer = create_llm_analyzer(db)
+                
+                if not analyzer:
+                    print("❌ LLM not configured or API key not set", file=sys.stderr)
+                    print("Run 'crumdbob llm setup' first.", file=sys.stderr)
+                    return 1
+                
+                # Get session data
+                session = db.get_session(args.session_id)
+                if not session:
+                    print(f"Error: Session #{args.session_id} not found", file=sys.stderr)
+                    return 1
+                
+                # Gather session data
+                files = db.get_session_files(args.session_id)
+                commands = db.get_session_commands(args.session_id)
+                risks = db.get_session_risks(args.session_id)
+                tasks = db.get_session_tasks(args.session_id)
+                
+                session_data = {
+                    "session_name": session.session_name,
+                    "git_branch": session.git_branch,
+                    "git_author": session.git_author,
+                    "file_count": session.file_count,
+                    "command_count": session.command_count,
+                    "risk_count": session.risk_count,
+                    "task_count": session.task_count,
+                    "files": [f.path for f in files],
+                    "commands": [c.command for c in commands],
+                    "risks": [r.description for r in risks],
+                    "tasks": [t.description for t in tasks],
+                }
+                
+                print(f"🤖 Analyzing Session #{args.session_id}...")
+                print()
+                
+                response = analyzer.analyze_session(session_data)
+                
+                if response.cached:
+                    print("📦 [Cached Response]")
+                    print()
+                
+                print(response.content)
+                print()
+                print(f"Provider: {response.provider}/{response.model}")
+                if response.tokens_used:
+                    print(f"Tokens: {response.tokens_used}")
+            
+            return 0
+        
+        elif args.llm_command == "explain":
+            # Explain a pattern with LLM
+            from .llm import create_llm_analyzer
+            
+            with MemoryDatabase(db_path) as db:
+                analyzer = create_llm_analyzer(db)
+                
+                if not analyzer:
+                    print("❌ LLM not configured or API key not set", file=sys.stderr)
+                    return 1
+                
+                # For now, use pattern description from command line
+                pattern_data = {
+                    "pattern_type": args.pattern_type if hasattr(args, 'pattern_type') else "general",
+                    "description": args.description,
+                    "frequency": args.frequency if hasattr(args, 'frequency') else 1,
+                    "evidence": []
+                }
+                
+                print(f"🤖 Explaining pattern...")
+                print()
+                
+                response = analyzer.explain_pattern(pattern_data)
+                
+                if response.cached:
+                    print("📦 [Cached Response]")
+                    print()
+                
+                print(response.content)
+                print()
+                print(f"Provider: {response.provider}/{response.model}")
+                if response.tokens_used:
+                    print(f"Tokens: {response.tokens_used}")
+            
+            return 0
+        
+        elif args.llm_command == "recommend":
+            # Get recommendations for a session
+            from .llm import create_llm_analyzer
+            
+            with MemoryDatabase(db_path) as db:
+                analyzer = create_llm_analyzer(db)
+                
+                if not analyzer:
+                    print("❌ LLM not configured or API key not set", file=sys.stderr)
+                    return 1
+                
+                # Get session data
+                session = db.get_session(args.session_id)
+                if not session:
+                    print(f"Error: Session #{args.session_id} not found", file=sys.stderr)
+                    return 1
+                
+                files = db.get_session_files(args.session_id)
+                risks = db.get_session_risks(args.session_id)
+                tasks = db.get_session_tasks(args.session_id)
+                
+                session_data = {
+                    "session_name": session.session_name,
+                    "files": [f.path for f in files],
+                    "risks": [r.description for r in risks],
+                    "tasks": [t.description for t in tasks],
+                }
+                
+                print(f"🤖 Generating recommendations for Session #{args.session_id}...")
+                print()
+                
+                response = analyzer.recommend_actions(session_data)
+                
+                if response.cached:
+                    print("📦 [Cached Response]")
+                    print()
+                
+                print(response.content)
+                print()
+                print(f"Provider: {response.provider}/{response.model}")
+                if response.tokens_used:
+                    print(f"Tokens: {response.tokens_used}")
+            
+            return 0
+        
+        elif args.llm_command == "clear-cache":
+            # Clear LLM cache
+            with MemoryDatabase(db_path) as db:
+                older_than = args.older_than if hasattr(args, 'older_than') else None
+                deleted = db.clear_llm_cache(older_than_days=older_than)
+                
+                if older_than:
+                    print(f"✓ Cleared {deleted} cached responses older than {older_than} days")
+                else:
+                    print(f"✓ Cleared {deleted} cached responses")
+            
+            return 0
+        
+        return 1
+    except Exception as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+
 
     print(f"  Errors: {error_count}")
     
@@ -1077,16 +1292,47 @@ def cmd_config(args: argparse.Namespace) -> int:
         print("Current configuration:")
         for key, value in sorted(config.items()):
             print(f"  {key} = {value}")
-        return 0
+
+def _register_llm_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register LLM-powered analysis commands."""
+    llm_cmd = sub.add_parser("llm", help="LLM-powered intelligent analysis.")
+    llm_sub = llm_cmd.add_subparsers(dest="llm_command", required=True)
     
-    elif args.config_command == "reset":
-        # Reset to defaults
-        from .config import DEFAULT_CONFIG
-        save_config(DEFAULT_CONFIG.copy())
-        print("✓ Configuration reset to defaults")
-        return 0
+    # Setup command
+    llm_setup = llm_sub.add_parser("setup", help="Configure LLM provider and API key")
+    llm_setup.add_argument("provider", choices=["openai", "anthropic"], help="LLM provider")
+    llm_setup.add_argument("--model", type=str, help="Model name (default: provider default)")
+    llm_setup.add_argument("--temperature", type=float, default=0.7, help="Temperature (default: 0.7)")
+    llm_setup.add_argument("--max-tokens", type=int, default=2000, help="Max tokens (default: 2000)")
+    _add_db_argument(llm_setup)
     
-    return 1
+    # Status command
+    llm_status = llm_sub.add_parser("status", help="Show LLM configuration and usage stats")
+    _add_db_argument(llm_status)
+    
+    # Analyze command
+    llm_analyze = llm_sub.add_parser("analyze", help="Analyze a session with LLM")
+    llm_analyze.add_argument("session_id", type=int, help="Session ID to analyze")
+    _add_db_argument(llm_analyze)
+    
+    # Explain command
+    llm_explain = llm_sub.add_parser("explain", help="Get LLM explanation of a pattern")
+    llm_explain.add_argument("description", type=str, help="Pattern description")
+    llm_explain.add_argument("--pattern-type", type=str, help="Pattern type")
+    llm_explain.add_argument("--frequency", type=int, help="Pattern frequency")
+    _add_db_argument(llm_explain)
+    
+    # Recommend command
+    llm_recommend = llm_sub.add_parser("recommend", help="Get LLM recommendations for a session")
+    llm_recommend.add_argument("session_id", type=int, help="Session ID")
+    _add_db_argument(llm_recommend)
+    
+    # Clear cache command
+    llm_clear = llm_sub.add_parser("clear-cache", help="Clear LLM response cache")
+    llm_clear.add_argument("--older-than", type=int, help="Clear entries older than N days")
+    _add_db_argument(llm_clear)
+    
+    llm_cmd.set_defaults(func=cmd_llm)
 
 
 # Constants for CLI help text
@@ -1299,10 +1545,17 @@ def _register_patterns_subcommands(sub: argparse._SubParsersAction) -> None:
 
 
 def _register_dashboard_subcommands(sub: argparse._SubParsersAction) -> None:
-    """Register dashboard command."""
+    """Register dashboard and serve commands."""
     dashboard_cmd = sub.add_parser("dashboard", help="Display intelligence dashboard.")
     _add_db_argument(dashboard_cmd)
     dashboard_cmd.set_defaults(func=cmd_dashboard)
+    
+    serve_cmd = sub.add_parser("serve", help="Start web dashboard server.")
+    _add_db_argument(serve_cmd)
+    serve_cmd.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to (default: 127.0.0.1)")
+    serve_cmd.add_argument("--port", type=int, default=8000, help="Port to bind to (default: 8000)")
+    serve_cmd.add_argument("--no-browser", action="store_true", help="Don't open browser automatically")
+    serve_cmd.set_defaults(func=cmd_serve)
 
 
 def _register_config_subcommands(sub: argparse._SubParsersAction) -> None:
@@ -1338,6 +1591,7 @@ def build_parser() -> argparse.ArgumentParser:
     _register_patterns_subcommands(sub)
     _register_dashboard_subcommands(sub)
     _register_config_subcommands(sub)
+    _register_llm_subcommands(sub)
     
     return parser
 

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CrumbBob Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="logo">
+                <h1>🧠 CrumbBob</h1>
+                <p class="version">Dashboard v0.2.0</p>
+            </div>
+            <nav class="nav-menu">
+                <a href="#overview" class="nav-item active" data-view="overview">
+                    <span class="icon">📊</span>
+                    <span>Overview</span>
+                </a>
+                <a href="#sessions" class="nav-item" data-view="sessions">
+                    <span class="icon">📝</span>
+                    <span>Sessions</span>
+                </a>
+                <a href="#insights" class="nav-item" data-view="insights">
+                    <span class="icon">💡</span>
+                    <span>Insights</span>
+                </a>
+                <a href="#patterns" class="nav-item" data-view="patterns">
+                    <span class="icon">🔍</span>
+                    <span>Patterns</span>
+                </a>
+                <a href="#risks" class="nav-item" data-view="risks">
+                    <span class="icon">⚠️</span>
+                    <span>Risks</span>
+                </a>
+                <a href="#trends" class="nav-item" data-view="trends">
+                    <span class="icon">📈</span>
+                    <span>Trends</span>
+                </a>
+                <a href="#query" class="nav-item" data-view="query">
+                    <span class="icon">🔎</span>
+                    <span>Query</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot" id="status-dot"></span>
+                    <span id="status-text">Connecting...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="header">
+                <h2 id="page-title">Dashboard Overview</h2>
+                <div class="header-actions">
+                    <button class="btn btn-secondary" id="refresh-btn">
+                        <span>🔄</span> Refresh
+                    </button>
+                    <button class="btn btn-secondary" id="theme-toggle">
+                        <span id="theme-icon">🌙</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Overview View -->
+            <div id="overview-view" class="view active">
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📝</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Total Sessions</div>
+                            <div class="stat-value" id="stat-sessions">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📁</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Files Tracked</div>
+                            <div class="stat-value" id="stat-files">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⚠️</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Open Risks</div>
+                            <div class="stat-value" id="stat-risks">-</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">✅</div>
+                        <div class="stat-content">
+                            <div class="stat-label">Pending Tasks</div>
+                            <div class="stat-value" id="stat-tasks">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Session Timeline</h3>
+                        <canvas id="session-timeline-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Risk Distribution</h3>
+                        <canvas id="risk-distribution-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Activity -->
+                <div class="card">
+                    <h3>Recent Sessions</h3>
+                    <div id="recent-sessions-list" class="list-container"></div>
+                </div>
+            </div>
+
+            <!-- Sessions View -->
+            <div id="sessions-view" class="view">
+                <div class="view-controls">
+                    <input type="text" id="session-search" class="search-input" placeholder="Search sessions...">
+                    <select id="session-filter" class="filter-select">
+                        <option value="">All Sessions</option>
+                        <option value="recent">Recent (7 days)</option>
+                    </select>
+                </div>
+                <div id="sessions-list" class="list-container"></div>
+                <div id="session-detail" class="detail-panel" style="display: none;">
+                    <button class="btn-close" id="close-session-detail">×</button>
+                    <div id="session-detail-content"></div>
+                </div>
+            </div>
+
+            <!-- Insights View -->
+            <div id="insights-view" class="view">
+                <div class="view-controls">
+                    <select id="insights-severity-filter" class="filter-select">
+                        <option value="">All Severities</option>
+                        <option value="critical">Critical</option>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div id="insights-list" class="insights-container"></div>
+            </div>
+
+            <!-- Patterns View -->
+            <div id="patterns-view" class="view">
+                <div id="patterns-list" class="patterns-container"></div>
+            </div>
+
+            <!-- Risks View -->
+            <div id="risks-view" class="view">
+                <div class="view-controls">
+                    <select id="risks-status-filter" class="filter-select">
+                        <option value="">All Risks</option>
+                        <option value="open">Open</option>
+                        <option value="mitigated">Mitigated</option>
+                        <option value="accepted">Accepted</option>
+                    </select>
+                </div>
+                <div id="risks-list" class="list-container"></div>
+            </div>
+
+            <!-- Trends View -->
+            <div id="trends-view" class="view">
+                <div class="view-controls">
+                    <select id="trends-period" class="filter-select">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                    </select>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card full-width">
+                        <h3>Activity Trends</h3>
+                        <canvas id="trends-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Query View -->
+            <div id="query-view" class="view">
+                <div class="query-panel">
+                    <h3>Natural Language Query</h3>
+                    <p class="help-text">Ask questions about your sessions, files, risks, and patterns.</p>
+                    <div class="query-input-group">
+                        <input type="text" id="query-input" class="query-input" 
+                               placeholder="e.g., 'Show me all authentication risks' or 'What files changed the most?'">
+                        <button class="btn btn-primary" id="query-submit">Ask</button>
+                    </div>
+                    <div class="query-examples">
+                        <p><strong>Example queries:</strong></p>
+                        <button class="example-query" data-query="Show me all open risks">Show me all open risks</button>
+                        <button class="example-query" data-query="What files changed the most?">What files changed the most?</button>
+                        <button class="example-query" data-query="List recent sessions">List recent sessions</button>
+                        <button class="example-query" data-query="Show pending tasks">Show pending tasks</button>
+                    </div>
+                </div>
+                <div id="query-results" class="query-results"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
