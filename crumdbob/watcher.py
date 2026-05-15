@@ -120,8 +120,8 @@ class PackRegenerationHandler(FileSystemEventHandler):
             for path in written:
                 print(f"  - {path.name}")
             return True
-        except Exception as exc:
-            print(f"[{self._format_time()}] ✗ Error: {exc}", file=sys.stderr)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"[{self._format_time()}] ✗ Regeneration error: {exc}", file=sys.stderr)
             return False
     
     @staticmethod
@@ -174,7 +174,7 @@ def watch_directory(
         written = regenerate_callback(input_dir, output_dir)
         print(f"[{time.strftime('%H:%M:%S')}] ✓ Initial generation complete ({len(written)} files)")
         print()
-    except Exception as exc:
+    except (OSError, ValueError, RuntimeError) as exc:
         print(f"[{time.strftime('%H:%M:%S')}] ✗ Initial generation failed: {exc}", file=sys.stderr)
         return 1
     

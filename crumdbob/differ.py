@@ -102,7 +102,7 @@ def parse_crumb_file(path: Path) -> CrumbFile | None:
     
     try:
         content = path.read_text(encoding="utf-8")
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         return None
     
     lines = content.splitlines()
@@ -215,13 +215,13 @@ def compare_proof_chains(path1: Path, path2: Path) -> ProofChainDiff:
     if path1.exists():
         try:
             proof1 = json.loads(path1.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             pass
     
     if path2.exists():
         try:
             proof2 = json.loads(path2.read_text(encoding="utf-8"))
-        except Exception:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
             pass
     
     if proof1 is None and proof2 is None:

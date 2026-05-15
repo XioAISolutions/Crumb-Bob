@@ -1089,10 +1089,23 @@ def cmd_config(args: argparse.Namespace) -> int:
     return 1
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="crumdbob", description="Generate replayable software memory packs from IBM Bob reports.")
-    sub = parser.add_subparsers(dest="command", required=True)
+# Constants for CLI help text
+DB_HELP = "Database path (default: ~/.crumdbob/memory.db)"
+DB_INIT_HINT = "Run 'crumdbob init-db' to create the database."
 
+
+def _add_db_argument(parser: argparse.ArgumentParser) -> None:
+    """Add standard --db argument to a parser."""
+    parser.add_argument("--db", type=Path, help=DB_HELP)
+
+
+def _add_format_argument(parser: argparse.ArgumentParser, default: str = "table") -> None:
+    """Add standard --format argument to a parser."""
+    parser.add_argument("--format", choices=["table", "json"], default=default, help="Output format")
+
+
+def _register_pack_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register pack generation and manipulation commands."""
     import_cmd = sub.add_parser("import", help="Generate a CrumbBob pack from a Bob markdown report.")
     import_cmd.add_argument("report", type=Path)
     import_cmd.add_argument("--out", type=Path, required=True)
@@ -1102,7 +1115,7 @@ def build_parser() -> argparse.ArgumentParser:
     pack_cmd.add_argument("input_dir", type=Path)
     pack_cmd.add_argument("--out", type=Path, required=True)
     pack_cmd.add_argument("--record", action="store_true", help="Record pack to memory database")
-    pack_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
+    _add_db_argument(pack_cmd)
     pack_cmd.set_defaults(func=cmd_pack)
 
     auto_collect_cmd = sub.add_parser("auto-collect", help="Auto-collect artifacts from Git repo and generate pack.")
@@ -1111,7 +1124,7 @@ def build_parser() -> argparse.ArgumentParser:
     auto_collect_cmd.add_argument("--out", type=Path, required=True, help="Output directory for generated pack")
     auto_collect_cmd.add_argument("--no-interactive", action="store_true", help="Skip interactive artifact selection")
     auto_collect_cmd.add_argument("--record", action="store_true", help="Record pack to memory database")
-    auto_collect_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
+    _add_db_argument(auto_collect_cmd)
     auto_collect_cmd.set_defaults(func=cmd_auto_collect)
 
     watch_cmd = sub.add_parser("watch", help="Watch input directory and auto-regenerate pack on changes.")
@@ -1155,109 +1168,23 @@ def build_parser() -> argparse.ArgumentParser:
     skill_cmd = sub.add_parser("init-bob-skill", help="Write a small skill file for agents using CrumbBob.")
     skill_cmd.add_argument("--out", type=Path, required=True)
     skill_cmd.set_defaults(func=cmd_init_bob_skill)
-    
-    # Memory database commands
+
+
+def _register_db_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register memory database commands."""
     init_db_cmd = sub.add_parser("init-db", help="Initialize memory database.")
-    init_db_cmd.add_argument("--path", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
+    init_db_cmd.add_argument("--path", type=Path, help=DB_HELP)
     init_db_cmd.set_defaults(func=cmd_init_db)
     
-    
-    # Intelligence commands
-    query_cmd = sub.add_parser("query", help="Query memory database with natural language or templates.")
-    query_sub = query_cmd.add_subparsers(dest="query_type", required=True)
-    
-    query_natural = query_sub.add_parser("natural", help="Natural language query")
-    query_natural.add_argument("question", type=str, help="Natural language question")
-    query_natural.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    query_natural.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
-    
-    query_template = query_sub.add_parser("template", help="Template-based query")
-    query_template.add_argument("template", type=str, help="Template name")
-    query_template.add_argument("--params", nargs="*", help="Template parameters (key=value)")
-    query_template.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    query_template.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
-    
-    query_sql = query_sub.add_parser("sql", help="Direct SQL query")
-    query_sql.add_argument("sql", type=str, help="SQL query string")
-    query_sql.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    query_sql.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
-    
-    query_list = query_sub.add_parser("list-templates", help="List available query templates")
-    query_list.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    query_cmd.set_defaults(func=cmd_query)
-    
-    # Insights command
-    insights_cmd = sub.add_parser("insights", help="Generate and view actionable insights.")
-    insights_sub = insights_cmd.add_subparsers(dest="insights_command", required=True)
-    
-    insights_generate = insights_sub.add_parser("generate", help="Generate insights from database")
-    insights_generate.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    insights_list = insights_sub.add_parser("list", help="List all insights")
-    insights_list.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    insights_list.add_argument("--category", type=str, help="Filter by insight type")
-    insights_list.add_argument("--limit", type=int, default=50, help="Maximum insights to show")
-    
-    insights_top = insights_sub.add_parser("top", help="Show top N most important insights")
-    insights_top.add_argument("n", type=int, default=10, nargs="?", help="Number of insights (default: 10)")
-    insights_top.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    insights_actionable = insights_sub.add_parser("actionable", help="Show actionable insights")
-    insights_actionable.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    insights_cmd.set_defaults(func=cmd_insights)
-    
-    # Predict command
-    predict_cmd = sub.add_parser("predict", help="Make predictions based on historical data.")
-    predict_sub = predict_cmd.add_subparsers(dest="predict_type", required=True)
-    
-    predict_impact = predict_sub.add_parser("impact", help="Predict impact of file change")
-    predict_impact.add_argument("file_path", type=str, help="File path to analyze")
-    predict_impact.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    predict_risks = predict_sub.add_parser("risks", help="Predict risks for planned change")
-    predict_risks.add_argument("description", type=str, help="Description of planned change")
-    predict_risks.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    predict_complexity = predict_sub.add_parser("complexity", help="Predict task complexity")
-    predict_complexity.add_argument("description", type=str, help="Task description")
-    predict_complexity.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    predict_tests = predict_sub.add_parser("tests", help="Recommend tests for file changes")
-    predict_tests.add_argument("file_paths", type=str, nargs="+", help="File paths being changed")
-    predict_tests.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    predict_cmd.set_defaults(func=cmd_predict)
-    
-    # Patterns command
-    patterns_cmd = sub.add_parser("patterns", help="Detect and analyze patterns.")
-    patterns_sub = patterns_cmd.add_subparsers(dest="patterns_command", required=True)
-    
-    patterns_detect = patterns_sub.add_parser("detect", help="Detect patterns in database")
-    patterns_detect.add_argument("--type", choices=["all", "risks", "files", "tasks", "commands", "anomalies"], 
-                                 default="all", help="Pattern type to detect")
-    patterns_detect.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    patterns_analyze = patterns_sub.add_parser("analyze", help="Analyze patterns for specific file")
-    patterns_analyze.add_argument("file", type=str, help="File path to analyze")
-    patterns_analyze.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    
-    patterns_cmd.set_defaults(func=cmd_patterns)
-    
-    # Dashboard command
-    dashboard_cmd = sub.add_parser("dashboard", help="Display intelligence dashboard.")
-    dashboard_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    dashboard_cmd.set_defaults(func=cmd_dashboard)
     record_cmd = sub.add_parser("record", help="Record a pack directory to the database.")
     record_cmd.add_argument("pack_dir", type=Path, help="Pack directory to record")
-    record_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
+    _add_db_argument(record_cmd)
     record_cmd.add_argument("--session-name", type=str, help="Optional session name")
     record_cmd.set_defaults(func=cmd_record)
     
     list_sessions_cmd = sub.add_parser("list-sessions", help="List all recorded sessions.")
-    list_sessions_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
-    list_sessions_cmd.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
+    _add_db_argument(list_sessions_cmd)
+    _add_format_argument(list_sessions_cmd)
     list_sessions_cmd.add_argument("--limit", type=int, default=100, help="Maximum sessions to show")
     list_sessions_cmd.add_argument("--branch", type=str, help="Filter by Git branch")
     list_sessions_cmd.add_argument("--author", type=str, help="Filter by Git author")
@@ -1265,21 +1192,121 @@ def build_parser() -> argparse.ArgumentParser:
     
     show_session_cmd = sub.add_parser("show-session", help="Show detailed session information.")
     show_session_cmd.add_argument("session_id", type=int, help="Session ID to show")
-    show_session_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
+    _add_db_argument(show_session_cmd)
     show_session_cmd.set_defaults(func=cmd_show_session)
     
     migrate_cmd = sub.add_parser("migrate-to-db", help="Migrate existing pack directories to database.")
     migrate_cmd.add_argument("pack_dirs", type=Path, nargs="+", help="Pack directories to migrate")
-    migrate_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
+    _add_db_argument(migrate_cmd)
     migrate_cmd.set_defaults(func=cmd_migrate_to_db)
 
     trends_cmd = sub.add_parser("trends", help="Show cross-session patterns from memory database.")
-    trends_cmd.add_argument("--db", type=Path, help="Database path (default: ~/.crumdbob/memory.db)")
+    _add_db_argument(trends_cmd)
     trends_cmd.add_argument("--min-sessions", type=int, default=1, dest="min_sessions",
                             help="Minimum sessions a file/risk must appear in (default: 1)")
     trends_cmd.set_defaults(func=cmd_trends)
+
+
+def _register_query_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register query commands."""
+    query_cmd = sub.add_parser("query", help="Query memory database with natural language or templates.")
+    query_sub = query_cmd.add_subparsers(dest="query_type", required=True)
     
-    # Configuration command
+    query_natural = query_sub.add_parser("natural", help="Natural language query")
+    query_natural.add_argument("question", type=str, help="Natural language question")
+    _add_db_argument(query_natural)
+    _add_format_argument(query_natural)
+    
+    query_template = query_sub.add_parser("template", help="Template-based query")
+    query_template.add_argument("template", type=str, help="Template name")
+    query_template.add_argument("--params", nargs="*", help="Template parameters (key=value)")
+    _add_db_argument(query_template)
+    _add_format_argument(query_template)
+    
+    query_sql = query_sub.add_parser("sql", help="Direct SQL query")
+    query_sql.add_argument("sql", type=str, help="SQL query string")
+    _add_db_argument(query_sql)
+    _add_format_argument(query_sql)
+    
+    query_list = query_sub.add_parser("list-templates", help="List available query templates")
+    _add_db_argument(query_list)
+    
+    query_cmd.set_defaults(func=cmd_query)
+
+
+def _register_insights_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register insights commands."""
+    insights_cmd = sub.add_parser("insights", help="Generate and view actionable insights.")
+    insights_sub = insights_cmd.add_subparsers(dest="insights_command", required=True)
+    
+    insights_generate = insights_sub.add_parser("generate", help="Generate insights from database")
+    _add_db_argument(insights_generate)
+    
+    insights_list = insights_sub.add_parser("list", help="List all insights")
+    _add_db_argument(insights_list)
+    insights_list.add_argument("--category", type=str, help="Filter by insight type")
+    insights_list.add_argument("--limit", type=int, default=50, help="Maximum insights to show")
+    
+    insights_top = insights_sub.add_parser("top", help="Show top N most important insights")
+    insights_top.add_argument("n", type=int, default=10, nargs="?", help="Number of insights (default: 10)")
+    _add_db_argument(insights_top)
+    
+    insights_actionable = insights_sub.add_parser("actionable", help="Show actionable insights")
+    _add_db_argument(insights_actionable)
+    
+    insights_cmd.set_defaults(func=cmd_insights)
+
+
+def _register_predict_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register prediction commands."""
+    predict_cmd = sub.add_parser("predict", help="Make predictions based on historical data.")
+    predict_sub = predict_cmd.add_subparsers(dest="predict_type", required=True)
+    
+    predict_impact = predict_sub.add_parser("impact", help="Predict impact of file change")
+    predict_impact.add_argument("file_path", type=str, help="File path to analyze")
+    _add_db_argument(predict_impact)
+    
+    predict_risks = predict_sub.add_parser("risks", help="Predict risks for planned change")
+    predict_risks.add_argument("description", type=str, help="Description of planned change")
+    _add_db_argument(predict_risks)
+    
+    predict_complexity = predict_sub.add_parser("complexity", help="Predict task complexity")
+    predict_complexity.add_argument("description", type=str, help="Task description")
+    _add_db_argument(predict_complexity)
+    
+    predict_tests = predict_sub.add_parser("tests", help="Recommend tests for file changes")
+    predict_tests.add_argument("file_paths", type=str, nargs="+", help="File paths being changed")
+    _add_db_argument(predict_tests)
+    
+    predict_cmd.set_defaults(func=cmd_predict)
+
+
+def _register_patterns_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register pattern detection commands."""
+    patterns_cmd = sub.add_parser("patterns", help="Detect and analyze patterns.")
+    patterns_sub = patterns_cmd.add_subparsers(dest="patterns_command", required=True)
+    
+    patterns_detect = patterns_sub.add_parser("detect", help="Detect patterns in database")
+    patterns_detect.add_argument("--type", choices=["all", "risks", "files", "tasks", "commands", "anomalies"],
+                                 default="all", help="Pattern type to detect")
+    _add_db_argument(patterns_detect)
+    
+    patterns_analyze = patterns_sub.add_parser("analyze", help="Analyze patterns for specific file")
+    patterns_analyze.add_argument("file", type=str, help="File path to analyze")
+    _add_db_argument(patterns_analyze)
+    
+    patterns_cmd.set_defaults(func=cmd_patterns)
+
+
+def _register_dashboard_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register dashboard command."""
+    dashboard_cmd = sub.add_parser("dashboard", help="Display intelligence dashboard.")
+    _add_db_argument(dashboard_cmd)
+    dashboard_cmd.set_defaults(func=cmd_dashboard)
+
+
+def _register_config_subcommands(sub: argparse._SubParsersAction) -> None:
+    """Register configuration commands."""
     config_cmd = sub.add_parser("config", help="Manage CrumbBob configuration.")
     config_sub = config_cmd.add_subparsers(dest="config_command", required=True)
     
@@ -1295,6 +1322,22 @@ def build_parser() -> argparse.ArgumentParser:
     config_reset = config_sub.add_parser("reset", help="Reset configuration to defaults")
     
     config_cmd.set_defaults(func=cmd_config)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the main argument parser with all subcommands."""
+    parser = argparse.ArgumentParser(prog="crumdbob", description="Generate replayable software memory packs from IBM Bob reports.")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    # Register all command groups
+    _register_pack_subcommands(sub)
+    _register_db_subcommands(sub)
+    _register_query_subcommands(sub)
+    _register_insights_subcommands(sub)
+    _register_predict_subcommands(sub)
+    _register_patterns_subcommands(sub)
+    _register_dashboard_subcommands(sub)
+    _register_config_subcommands(sub)
     
     return parser
 
