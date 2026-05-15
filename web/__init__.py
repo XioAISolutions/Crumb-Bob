@@ -1,0 +1,1 @@
+"""CrumbBob web dashboard package."""

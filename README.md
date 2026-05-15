@@ -78,7 +78,7 @@ See [LLM Integration Guide](docs/llm-integration.md) for detailed setup instruct
 ### Quick Test
 
 ```bash
-# Run test suite (130+ tests)
+# Run test suite (200+ tests)
 pytest -q
 
 # Generate example pack

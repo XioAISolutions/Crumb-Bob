@@ -12,6 +12,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Literal
 
+from . import __version__
 from .parser import BobReport, parse_bob_report
 
 
@@ -104,7 +105,7 @@ class MemoryDatabase:
         """
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(str(self.db_path))
+        self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         # Tune SQLite for concurrent reads + safer writes.
         # WAL: readers don't block writers; foreign_keys: enforce CASCADE on session deletes.
@@ -391,7 +392,7 @@ class MemoryDatabase:
         session_name: str | None = None,
         git_context: dict[str, str] | None = None,
         proof_chain_hash: str | None = None,
-        crumdbob_version: str = "0.2.0",
+        crumdbob_version: str = __version__,
     ) -> int:
         """Record a complete pack session to database.
         
@@ -944,7 +945,9 @@ class MemoryDatabase:
         values = list(updates.values()) + [config_id]
         
         cursor = self.conn.cursor()
-        cursor.execute(f"UPDATE llm_config SET {set_clause} WHERE id = ?", values)
+        # Columns are restricted to allowed_fields; values stay parameterized.
+        query = f"UPDATE llm_config SET {set_clause} WHERE id = ?"  # nosec B608
+        cursor.execute(query, values)
         self.conn.commit()
     
     def get_llm_cache_stats(self) -> dict[str, Any]:
@@ -1054,7 +1057,7 @@ def record_pack_to_db(
     # Read proof chain once for all metadata
     proof_chain_path = pack_path / "08_proof_chain.json"
     proof_chain_hash = None
-    crumdbob_version = "0.2.0"
+    crumdbob_version = __version__
     source_report_path = None
 
     if proof_chain_path.exists():
@@ -1062,7 +1065,7 @@ def record_pack_to_db(
             raw_proof = proof_chain_path.read_text(encoding="utf-8")
             proof_data = json.loads(raw_proof)
             proof_chain_hash = MemoryDatabase._hash_content(raw_proof)
-            crumdbob_version = proof_data.get("crumdbob_version", "0.2.0")
+            crumdbob_version = proof_data.get("crumdbob_version", __version__)
             source_report_path = proof_data.get("source_report", {}).get("path")
         except (json.JSONDecodeError, OSError):
             pass
@@ -1133,7 +1136,7 @@ def record_pack_to_db(
                 from .validator import dependency_edges
                 edges, _ = dependency_edges(pack_path)
                 db.record_relationships(session_id, edges)
-            except Exception:
+            except (OSError, ValueError):
                 pass  # relationships are enrichment; never block a record
 
     return session_id
@@ -1141,13 +1144,13 @@ def record_pack_to_db(
 
 def _get_git_context(path: Path) -> dict[str, str]:
     """Extract Git context (branch, commit, author) from directory."""
-    import subprocess
+    import subprocess  # nosec B404
     
     context: dict[str, str] = {}
     
     try:
         # Get branch
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=path,
             capture_output=True,
@@ -1158,7 +1161,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
             context["branch"] = result.stdout.strip()
         
         # Get commit
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607
             ["git", "rev-parse", "HEAD"],
             cwd=path,
             capture_output=True,
@@ -1169,7 +1172,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
             context["commit"] = result.stdout.strip()[:12]
         
         # Get author
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607
             ["git", "config", "user.name"],
             cwd=path,
             capture_output=True,

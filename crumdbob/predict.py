@@ -105,15 +105,17 @@ class PredictionEngine:
         else:
             like_clauses = " OR ".join(["r.description LIKE ?"] * len(keywords))
             params = [f"%{kw}%" for kw in keywords]
-            cursor.execute(f"""
-                SELECT r.description, COUNT(DISTINCT r.session_id) as frequency,
-                       r.status, MAX(r.last_seen) as last_seen
-                FROM risks r
-                WHERE {like_clauses}
-                GROUP BY r.description, r.status
-                ORDER BY frequency DESC
-                LIMIT 25
-            """, params)
+            # WHERE clause shape is generated from fixed fragments; values are bound.
+            query = (
+                "SELECT r.description, COUNT(DISTINCT r.session_id) as frequency, "  # nosec B608
+                "r.status, MAX(r.last_seen) as last_seen "
+                "FROM risks r "
+                f"WHERE {like_clauses} "
+                "GROUP BY r.description, r.status "
+                "ORDER BY frequency DESC "
+                "LIMIT 25"
+            )
+            cursor.execute(query, params)
 
             # Dict preserves insertion order, so dedup by description while keeping
             # the highest-frequency row first.
@@ -167,16 +169,18 @@ class PredictionEngine:
         if keywords:
             like_clauses = " OR ".join(["t.description LIKE ?"] * len(keywords))
             params = [f"%{kw}%" for kw in keywords]
-            cursor.execute(f"""
-                SELECT t.description, t.status,
-                       julianday(t.last_seen) - julianday(t.first_seen) as duration_days,
-                       t.first_seen, t.last_seen
-                FROM tasks t
-                WHERE ({like_clauses})
-                AND julianday(t.last_seen) - julianday(t.first_seen) > 0
-                ORDER BY t.last_seen DESC
-                LIMIT 50
-            """, params)
+            # WHERE clause shape is generated from fixed fragments; values are bound.
+            query = (
+                "SELECT t.description, t.status, "  # nosec B608
+                "julianday(t.last_seen) - julianday(t.first_seen) as duration_days, "
+                "t.first_seen, t.last_seen "
+                "FROM tasks t "
+                f"WHERE ({like_clauses}) "
+                "AND julianday(t.last_seen) - julianday(t.first_seen) > 0 "
+                "ORDER BY t.last_seen DESC "
+                "LIMIT 50"
+            )
+            cursor.execute(query, params)
 
             seen_descriptions: set[str] = set()
             for row in cursor.fetchall():
@@ -276,17 +280,19 @@ class PredictionEngine:
         test_recommendations: list[dict[str, Any]] = []
         if file_paths:
             placeholders = ",".join(["?"] * len(file_paths))
-            cursor.execute(f"""
-                SELECT f1.path AS related_to, f2.path AS test_path,
-                       COUNT(DISTINCT f1.session_id) AS co_occurrence
-                FROM files f1
-                JOIN files f2 ON f1.session_id = f2.session_id
-                WHERE f1.path IN ({placeholders})
-                  AND (f2.path LIKE '%test%' OR f2.path LIKE '%spec%')
-                GROUP BY f1.path, f2.path
-                ORDER BY co_occurrence DESC
-                LIMIT {5 * len(file_paths)}
-            """, file_paths)
+            # Placeholders and limit are derived from len(file_paths); values are bound.
+            query = (
+                "SELECT f1.path AS related_to, f2.path AS test_path, "  # nosec B608
+                "COUNT(DISTINCT f1.session_id) AS co_occurrence "
+                "FROM files f1 "
+                "JOIN files f2 ON f1.session_id = f2.session_id "
+                f"WHERE f1.path IN ({placeholders}) "
+                "AND (f2.path LIKE '%test%' OR f2.path LIKE '%spec%') "
+                "GROUP BY f1.path, f2.path "
+                "ORDER BY co_occurrence DESC "
+                "LIMIT ?"
+            )
+            cursor.execute(query, [*file_paths, 5 * len(file_paths)])
             for row in cursor.fetchall():
                 test_recommendations.append({
                     "test_file": row["test_path"],

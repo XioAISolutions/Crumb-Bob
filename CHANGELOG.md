@@ -16,16 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Progress bars for long operations
   - Animated spinners for loading states
   - Graceful fallback to plain text when Rich not available
-- **Enhanced Commands**: 8 commands now use Rich UI
-  - `list` - Beautiful session tables
-  - `show` - Formatted session details with panels
+- **Enhanced Commands**: Existing commands now use Rich UI where available
+  - `list-sessions` - Beautiful session tables
+  - `show-session` - Formatted session details with panels
   - `insights` - Organized insight displays
   - `trends` - Visual trend presentations
   - `query` - Formatted query results
   - `patterns` - Pattern analysis tables
   - `predict` - Prediction displays with confidence scores
   - `validate` - Color-coded validation results
-- **New Module**: `crumdbob/ui.py` (682 lines)
+- **New Module**: `crumdbob/ui.py` (684 lines)
   - `CrumbBobUI` class with Rich integration
   - 15+ display functions for different data types
   - Progress and spinner helpers
@@ -59,7 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `GET /api/patterns` - Pattern detection results
   - `GET /api/risks` - Risk listing with filtering
   - `POST /api/query` - Execute queries
-  - `GET /docs` - Interactive API documentation
+  - `GET /api/docs` - Interactive API documentation
 - **Dashboard Views**:
   - Overview - Key metrics and recent activity
   - Sessions - Browse and filter all sessions
@@ -69,12 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Patterns - Pattern detection results
   - Query - Interactive query builder
 - **New Files**:
-  - `web/api/server.py` (509 lines) - FastAPI backend
-  - `web/static/app.js` (1,100+ lines) - Frontend logic
-  - `web/static/index.html` (300+ lines) - UI structure
-  - `web/static/styles.css` (250+ lines) - Styling
+  - `web/api/server.py` (660 lines) - FastAPI backend
+  - `web/static/app.js` (685 lines) - Frontend logic
+  - `web/static/index.html` (215 lines) - UI structure
+  - `web/static/styles.css` (760 lines) - Styling
   - `web/README.md` - Web dashboard documentation
-- **Testing**: 20 API tests (14 with known fixture issues)
+- **Testing**: 20 API tests
 
 #### Phase 3: LLM Integration 🤖
 - **AI-Powered Analysis**: Multi-provider LLM support
@@ -95,19 +95,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `llm_cache` table for response caching
   - Cache statistics and management
 - **New CLI Commands** (6):
-  - `llm setup` - Configure LLM provider and API key
+  - `llm setup <provider>` - Configure LLM provider and API key environment variable
   - `llm analyze <id>` - Analyze session with AI
-  - `llm explain <id>` - Explain patterns in session
+  - `llm explain <description>` - Explain a pattern
   - `llm recommend <id>` - Get AI recommendations
   - `llm status` - Check LLM configuration
   - `llm clear-cache` - Clear response cache
 - **Web Integration**: LLM analysis available via REST API
-- **New Module**: `crumdbob/llm.py` (485 lines)
+- **New Module**: `crumdbob/llm.py` (511 lines)
   - `LLMConfig` dataclass for configuration
   - `LLMAnalyzer` class with multi-provider support
   - Helper functions for database integration
   - Caching system with TTL support
-- **Documentation**: `docs/llm-integration.md` (565 lines)
+- **Documentation**: `docs/llm-integration.md` (560 lines)
   - Setup and configuration guide
   - Usage examples for all functions
   - Best practices and cost optimization
@@ -121,7 +121,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Database integration tests
 
 #### Documentation
-- **Enhancement Summary**: `ENHANCEMENTS_V0.3.md` (465 lines)
+- **Enhancement Summary**: `ENHANCEMENTS_V0.3.md` (462 lines)
   - Executive summary of all changes
   - Before/after comparisons
   - Feature highlights with examples
@@ -159,22 +159,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Updated installation instructions
 
 ### Fixed
-- None (this is a feature release with no bug fixes)
+- Fixed FastAPI/TestClient SQLite thread handling for web API tests.
+- Fixed dashboard loading state so the overview DOM is not replaced before data renders.
+- Fixed package metadata so `web.api` and static dashboard assets are included in installs.
+- Tightened local CORS defaults to localhost/127.0.0.1 origins without credentialed wildcard access.
 
 ### Known Issues
-- **API Test Failures**: 14 API tests fail due to database initialization in test fixtures
-  - Impact: Test infrastructure only, production code works correctly
-  - Status: Will be fixed in v0.3.1
-  - Workaround: Tests can be run individually
 - **Watchdog Tests**: 12 tests skipped when watchdog library not installed
   - Impact: None, optional feature
   - Status: Expected behavior
 
 ### Performance
-- **Test Coverage**: 206 total tests
-  - 180 passing (87.4%)
-  - 12 skipped (5.8%)
-  - 14 known issues (6.8%)
+- **Test Suite**: 206 total tests
+  - 194 passing
+  - 12 skipped when optional watchdog dependency is not installed
 - **Code Statistics**:
   - Files created: 15+
   - Lines added: ~7,600+
@@ -187,19 +185,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Database queries: Optimized with indexes
 
 ### Security
-- No security changes in this release
+- CORS defaults now allow local dashboard origins without credentialed wildcard access.
 
 ### Breaking Changes
 - **None**: This release is 100% backward compatible
-- All existing functionality works exactly as before
-- New features are opt-in and require additional dependencies
+- Existing core CLI functionality remains available without optional dependencies.
+- New Rich UI, web, watch, and LLM features are opt-in through extras.
 
 ### Migration Guide
 - **From v0.2.x to v0.3.0**: No migration needed
 - Optional: Install additional dependencies for new features
-  - `pip install rich>=13.0.0` for Rich UI
-  - `pip install fastapi>=0.104.0 uvicorn[standard]>=0.24.0` for web dashboard
-  - `pip install openai>=1.0.0 anthropic>=0.7.0 tiktoken>=0.5.0` for LLM
+  - `pip install -e ".[ui]"` for Rich UI
+  - `pip install -e ".[web]"` for web dashboard
+  - `pip install -e ".[llm]"` for LLM
 - Or install all features: `pip install -e ".[all]"`
 
 

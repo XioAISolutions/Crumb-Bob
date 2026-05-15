@@ -264,6 +264,7 @@ def test_execute_query(client):
     assert "results" in data
     assert "row_count" in data
     assert "explanation" in data
+    assert data["row_count"] >= 1
 
 
 def test_execute_query_invalid(client):
@@ -277,8 +278,8 @@ def test_execute_query_invalid(client):
 
 def test_cors_headers(client):
     """Test CORS headers are present."""
-    response = client.get("/api/health")
-    assert "access-control-allow-origin" in response.headers
+    response = client.get("/api/health", headers={"Origin": "http://localhost:3000"})
+    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
 
 
 def test_root_endpoint(client):

@@ -79,7 +79,7 @@ pip install crumdbob[web]
 crumdbob serve
 
 # Specify custom host and port
-crumdbob serve --host 0.0.0.0 --port 8080
+crumdbob serve --host 127.0.0.1 --port 8080
 
 # Use custom database
 crumdbob serve --db /path/to/custom.db
@@ -87,6 +87,8 @@ crumdbob serve --db /path/to/custom.db
 # Don't open browser automatically
 crumdbob serve --no-browser
 ```
+
+Bind to `0.0.0.0` only on trusted networks. The dashboard API is intended for local development and does not provide authentication.
 
 ### Accessing the Dashboard
 

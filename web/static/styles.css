@@ -228,6 +228,7 @@ body {
 /* Views */
 .view {
     display: none;
+    position: relative;
 }
 
 .view.active {
@@ -691,6 +692,23 @@ body {
     border-top-color: var(--accent-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
+}
+
+.loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+    background: rgba(255, 255, 255, 0.72);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+[data-theme="dark"] .loading-overlay {
+    background: rgba(15, 23, 42, 0.72);
 }
 
 @keyframes spin {

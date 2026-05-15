@@ -73,8 +73,8 @@ pip install openai anthropic tiktoken
 # Set your OpenAI API key
 export OPENAI_API_KEY="sk-..."
 
-# Add to your shell profile for persistence
-echo 'export OPENAI_API_KEY="sk-..."' >> ~/.bashrc
+# For persistence, add the export manually to a private shell profile
+# or use your OS secret manager. Do not commit API keys.
 ```
 
 Get your API key from: https://platform.openai.com/api-keys
@@ -85,8 +85,8 @@ Get your API key from: https://platform.openai.com/api-keys
 # Set your Anthropic API key
 export ANTHROPIC_API_KEY="sk-ant-..."
 
-# Add to your shell profile for persistence
-echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.bashrc
+# For persistence, add the export manually to a private shell profile
+# or use your OS secret manager. Do not commit API keys.
 ```
 
 Get your API key from: https://console.anthropic.com/

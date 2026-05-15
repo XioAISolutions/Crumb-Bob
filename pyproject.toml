@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crumdbob"
-version = "0.2.0"
+version = "0.3.0"
 description = "Replayable software memory for IBM Bob development sessions."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,13 +20,14 @@ classifiers = [
   "Topic :: Software Development :: Quality Assurance",
   "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
-dependencies = [
-  "rich>=13.0.0",
+dependencies = []
+
+[project.optional-dependencies]
+ui = ["rich>=13.0.0"]
+web = [
   "fastapi>=0.104.0",
   "uvicorn[standard]>=0.24.0"
 ]
-
-[project.optional-dependencies]
 watch = ["watchdog>=3.0.0"]
 llm = [
   "openai>=1.0.0",
@@ -36,9 +37,20 @@ llm = [
 dev = [
   "pytest>=7.0",
   "pytest-cov>=4.0",
-  "mypy>=1.0"
+  "mypy>=1.0",
+  "httpx>=0.25.0",
+  "rich>=13.0.0",
+  "fastapi>=0.104.0",
+  "uvicorn[standard]>=0.24.0",
+  "watchdog>=3.0.0",
+  "openai>=1.0.0",
+  "anthropic>=0.7.0",
+  "tiktoken>=0.5.0"
 ]
 all = [
+  "rich>=13.0.0",
+  "fastapi>=0.104.0",
+  "uvicorn[standard]>=0.24.0",
   "watchdog>=3.0.0",
   "openai>=1.0.0",
   "anthropic>=0.7.0",
@@ -49,7 +61,10 @@ all = [
 crumdbob = "crumdbob.cli:main"
 
 [tool.setuptools.packages.find]
-include = ["crumdbob*"]
+include = ["crumdbob*", "web*"]
+
+[tool.setuptools.package-data]
+web = ["static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

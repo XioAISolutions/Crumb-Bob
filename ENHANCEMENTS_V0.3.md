@@ -23,7 +23,7 @@ CrumbBob v0.3.0 represents a **transformative upgrade** from a command-line deve
 
 ### Before (v0.2.x)
 ```
-$ crumdbob list
+$ crumdbob list-sessions
 Session 1: 2024-01-15 10:30:00
 Session 2: 2024-01-15 11:45:00
 Session 3: 2024-01-15 14:20:00
@@ -31,7 +31,7 @@ Session 3: 2024-01-15 14:20:00
 
 ### After (v0.3.0)
 ```
-$ crumdbob list
+$ crumdbob list-sessions
 ╭─────────────────────── Recent Sessions ───────────────────────╮
 │ ID │ Timestamp           │ Files │ Risks │ Duration │ Status  │
 ├────┼─────────────────────┼───────┼───────┼──────────┼─────────┤
@@ -60,8 +60,8 @@ Plus: Web dashboard with charts, graphs, and real-time updates!
 - 🎯 **Graceful Fallback**: Works without Rich library installed
 
 **Commands Enhanced**:
-- `crumdbob list` - Beautiful session tables
-- `crumdbob show <id>` - Formatted session details
+- `crumdbob list-sessions` - Beautiful session tables
+- `crumdbob show-session <id>` - Formatted session details
 - `crumdbob insights` - Organized insight panels
 - `crumdbob trends` - Visual trend displays
 - `crumdbob query` - Formatted query results
@@ -70,7 +70,7 @@ Plus: Web dashboard with charts, graphs, and real-time updates!
 - `crumdbob validate` - Validation results
 
 **Technical Details**:
-- File: `crumdbob/ui.py` (682 lines)
+- File: `crumdbob/ui.py` (684 lines)
 - Tests: 24 comprehensive tests
 - Dependencies: `rich>=13.0.0` (optional)
 
@@ -98,8 +98,8 @@ Plus: Web dashboard with charts, graphs, and real-time updates!
 7. **Query** - Interactive query builder
 
 **Technical Details**:
-- Backend: `web/api/server.py` (509 lines) - FastAPI
-- Frontend: `web/static/` (1,654 lines) - Vanilla JS
+- Backend: `web/api/server.py` (660 lines) - FastAPI
+- Frontend: `web/static/` (1,660 lines) - Vanilla JS
 - Tests: 20 API tests
 - Dependencies: `fastapi>=0.104.0`, `uvicorn[standard]>=0.24.0`
 
@@ -114,7 +114,7 @@ GET  /api/trends          - Trend analysis
 GET  /api/patterns        - Pattern detection
 GET  /api/risks           - Risk listing
 POST /api/query           - Execute queries
-GET  /docs                - OpenAPI documentation
+GET  /api/docs            - OpenAPI documentation
 ```
 
 ### 3. LLM Integration (Phase 3)
@@ -137,24 +137,25 @@ GET  /docs                - OpenAPI documentation
 
 **New Commands**:
 ```bash
-crumdbob llm setup          # Configure LLM provider
+crumdbob llm setup <provider> # Configure LLM provider
 crumdbob llm analyze <id>   # Analyze session with AI
-crumdbob llm explain <id>   # Explain patterns
+crumdbob llm explain <description> # Explain a pattern
 crumdbob llm recommend <id> # Get recommendations
 crumdbob llm status         # Check configuration
 crumdbob llm clear-cache    # Clear response cache
 ```
 
 **Technical Details**:
-- File: `crumdbob/llm.py` (485 lines)
-- Documentation: `docs/llm-integration.md` (565 lines)
+- File: `crumdbob/llm.py` (511 lines)
+- Documentation: `docs/llm-integration.md` (560 lines)
 - Tests: 408 lines of comprehensive tests
 - Dependencies: `openai>=1.0.0`, `anthropic>=0.7.0`, `tiktoken>=0.5.0` (all optional)
 
 **Example Usage**:
 ```bash
 # Setup
-$ crumdbob llm setup --provider openai --api-key sk-...
+$ export OPENAI_API_KEY="sk-..."
+$ crumdbob llm setup openai --model gpt-4
 
 # Analyze a session
 $ crumdbob llm analyze 123
@@ -195,8 +196,8 @@ pip install -e ".[llm]"     # LLM integration only
 No configuration needed! Just use CrumbBob commands as usual:
 
 ```bash
-crumdbob list
-crumdbob show 123
+crumdbob list-sessions
+crumdbob show-session 123
 crumdbob insights
 ```
 
@@ -204,10 +205,10 @@ crumdbob insights
 
 ```bash
 # Start the web server
-crumdbob web start
+crumdbob serve
 
 # Or with custom settings
-crumdbob web start --host 0.0.0.0 --port 8080
+crumdbob serve --host 127.0.0.1 --port 8080
 
 # Open in browser
 open http://localhost:8000
@@ -217,10 +218,12 @@ open http://localhost:8000
 
 ```bash
 # Setup OpenAI
-crumdbob llm setup --provider openai --api-key sk-...
+export OPENAI_API_KEY="sk-..."
+crumdbob llm setup openai
 
 # Or Anthropic
-crumdbob llm setup --provider anthropic --api-key sk-ant-...
+export ANTHROPIC_API_KEY="sk-ant-..."
+crumdbob llm setup anthropic
 
 # Verify configuration
 crumdbob llm status
@@ -283,16 +286,6 @@ crumdbob llm recommend 123
 
 ## Known Issues
 
-### API Test Failures (14 tests)
-
-**Issue**: Some API tests fail due to database initialization in test fixtures.
-
-**Impact**: Test infrastructure only - production code works correctly.
-
-**Status**: Will be fixed in v0.3.1.
-
-**Workaround**: Tests can be run individually or with specific fixtures.
-
 ### Watchdog Tests (12 skipped)
 
 **Issue**: Watchdog tests skipped when library not installed.
@@ -306,7 +299,6 @@ crumdbob llm recommend 123
 ## Future Roadmap
 
 ### v0.3.1 (Bug Fixes)
-- Fix API test fixtures
 - Improve error handling in web dashboard
 - Add more LLM providers (Google, Cohere)
 

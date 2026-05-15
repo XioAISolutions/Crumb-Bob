@@ -116,6 +116,15 @@ class TestQueryEngine:
         result = engine.query_natural("Which tasks were never completed")
         
         assert result.row_count >= 0  # May be 0 if all completed
+
+    def test_natural_language_query_all_sessions(self, populated_db):
+        """Test natural language query for all sessions."""
+        engine = create_query_engine(populated_db)
+
+        result = engine.query_natural("Show me all sessions")
+
+        assert result.row_count > 0
+        assert "sessions" in result.explanation.lower()
     
     def test_template_query(self, populated_db):
         """Test template-based query."""

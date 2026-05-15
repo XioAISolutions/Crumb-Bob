@@ -5,14 +5,14 @@ import os
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from crumdbob import __version__
 from crumdbob.memory import MemoryDatabase, get_default_db_path
 from crumdbob.query import create_query_engine
 from crumdbob.insights import create_insights_engine
@@ -41,54 +41,60 @@ class StatsResponse(BaseModel):
 
 def create_app(db_path: str | Path | None = None) -> FastAPI:
     """Create FastAPI application.
-    
+
     Args:
         db_path: Path to database file (uses default if None)
-        
+
     Returns:
         Configured FastAPI application
     """
     app = FastAPI(
         title="CrumbBob Dashboard",
         description="Interactive web dashboard for CrumbBob intelligence data",
-        version="0.2.0",
+        version=__version__,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
     )
-    
-    # Enable CORS for local development
+
+    cors_origin_regex = os.getenv(
+        "CRUMDBOB_CORS_ORIGIN_REGEX",
+        r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+    )
+
+    # Enable CORS for local development dashboards without credentialed wildcard access.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],
-        allow_credentials=True,
+        allow_origins=[],
+        allow_origin_regex=cors_origin_regex,
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
     # Initialize database connection
     if db_path is None:
         db_path = get_default_db_path()
-    
+
     db = MemoryDatabase(db_path)
     query_engine = create_query_engine(db)
     insights_engine = create_insights_engine(db)
     pattern_detector = create_pattern_detector(db)
     prediction_engine = create_prediction_engine(db)
-    
+
     # Store in app state
     app.state.db = db
     app.state.query_engine = query_engine
     app.state.insights_engine = insights_engine
     app.state.pattern_detector = pattern_detector
     app.state.prediction_engine = prediction_engine
-    
+
     # Serve static files
     web_dir = Path(__file__).parent.parent
     static_dir = web_dir / "static"
-    
+
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-    
+
     # Routes
     @app.get("/")
     async def root():
@@ -97,7 +103,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         if index_path.exists():
             return FileResponse(index_path)
         return {"message": "CrumbBob Dashboard API", "docs": "/api/docs"}
-    
+
     @app.get("/api/health")
     async def health_check():
         """Health check endpoint."""
@@ -106,49 +112,49 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             "timestamp": datetime.now().isoformat(),
             "database": str(db_path),
         }
-    
+
     @app.get("/api/stats")
     async def get_stats() -> StatsResponse:
         """Get dashboard statistics."""
         try:
             conn = db.conn
             cursor = conn.cursor()
-            
+
             # Total sessions
             cursor.execute("SELECT COUNT(*) FROM sessions")
             total_sessions = cursor.fetchone()[0]
-            
+
             # Recent sessions (last 7 days)
             cursor.execute("""
                 SELECT COUNT(*) FROM sessions
                 WHERE datetime(timestamp) >= datetime('now', '-7 days')
             """)
             recent_sessions = cursor.fetchone()[0]
-            
+
             # Total unique files
             cursor.execute("SELECT COUNT(DISTINCT path) FROM files")
             total_files = cursor.fetchone()[0]
-            
+
             # Total unique commands
             cursor.execute("SELECT COUNT(DISTINCT command) FROM commands")
             total_commands = cursor.fetchone()[0]
-            
+
             # Total risks
             cursor.execute("SELECT COUNT(*) FROM risks")
             total_risks = cursor.fetchone()[0]
-            
+
             # Open risks
             cursor.execute("SELECT COUNT(*) FROM risks WHERE status = 'open'")
             open_risks = cursor.fetchone()[0]
-            
+
             # Total tasks
             cursor.execute("SELECT COUNT(*) FROM tasks")
             total_tasks = cursor.fetchone()[0]
-            
+
             # Pending tasks
             cursor.execute("SELECT COUNT(*) FROM tasks WHERE status = 'pending'")
             pending_tasks = cursor.fetchone()[0]
-            
+
             return StatsResponse(
                 total_sessions=total_sessions,
                 total_files=total_files,
@@ -161,7 +167,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             )
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.get("/api/sessions")
     async def list_sessions(
         limit: int = Query(default=20, ge=1, le=100),
@@ -170,7 +176,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         """List all sessions with pagination."""
         try:
             sessions = db.list_sessions(limit=limit, offset=offset)
-            
+
             # Convert to dict format
             sessions_data = [
                 {
@@ -188,12 +194,12 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 }
                 for s in sessions
             ]
-            
+
             # Get total count
             cursor = db.conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM sessions")
             total = cursor.fetchone()[0]
-            
+
             return {
                 "sessions": sessions_data,
                 "total": total,
@@ -202,7 +208,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.get("/api/sessions/{session_id}")
     async def get_session(session_id: int):
         """Get detailed session information."""
@@ -210,13 +216,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             session = db.get_session(session_id)
             if not session:
                 raise HTTPException(status_code=404, detail="Session not found")
-            
+
             # Get related data
             files = db.get_session_files(session_id)
             commands = db.get_session_commands(session_id)
             risks = db.get_session_risks(session_id)
             tasks = db.get_session_tasks(session_id)
-            
+
             return {
                 "session": {
                     "id": session.id,
@@ -274,7 +280,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.get("/api/insights")
     async def list_insights(
         severity: str | None = Query(default=None),
@@ -283,14 +289,14 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         """List insights with optional filtering."""
         try:
             insights = insights_engine.generate_insights()
-            
+
             # Filter by severity if provided
             if severity:
                 insights = [i for i in insights if i.severity == severity]
-            
+
             # Apply limit
             insights = insights[:limit]
-            
+
             return {
                 "insights": [
                     {
@@ -311,7 +317,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.get("/api/trends")
     async def get_trends(
         days: int = Query(default=30, ge=1, le=365),
@@ -319,7 +325,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         """Get trend data over time."""
         try:
             cursor = db.conn.cursor()
-            
+
             # Sessions over time
             cursor.execute("""
                 SELECT date(timestamp) as date, COUNT(*) as count
@@ -332,7 +338,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 {"date": row[0], "count": row[1]}
                 for row in cursor.fetchall()
             ]
-            
+
             # Risks over time
             cursor.execute("""
                 SELECT date(r.first_seen) as date, COUNT(*) as count
@@ -345,7 +351,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 {"date": row[0], "count": row[1]}
                 for row in cursor.fetchall()
             ]
-            
+
             # Files over time
             cursor.execute("""
                 SELECT date(f.first_seen) as date, COUNT(DISTINCT f.path) as count
@@ -358,7 +364,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 {"date": row[0], "count": row[1]}
                 for row in cursor.fetchall()
             ]
-            
+
             return {
                 "sessions": sessions_trend,
                 "risks": risks_trend,
@@ -367,13 +373,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.get("/api/patterns")
     async def get_patterns():
         """Get detected patterns."""
         try:
             patterns = pattern_detector.detect_all()
-            
+
             return {
                 "patterns": [
                     {
@@ -393,7 +399,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.get("/api/risks")
     async def list_risks(
         status: str | None = Query(default=None),
@@ -402,7 +408,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         """Get risk predictions and current risks."""
         try:
             cursor = db.conn.cursor()
-            
+
             # Build query
             query = """
                 SELECT r.*, s.session_name, s.timestamp, s.git_branch
@@ -410,17 +416,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 JOIN sessions s ON r.session_id = s.id
             """
             params = []
-            
+
             if status:
                 query += " WHERE r.status = ?"
                 params.append(status)
-            
+
             query += " ORDER BY r.last_seen DESC LIMIT ?"
             params.append(limit)
-            
+
             cursor.execute(query, params)
             rows = cursor.fetchall()
-            
+
             risks = [
                 {
                     "id": row[0],
@@ -435,16 +441,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 }
                 for row in rows
             ]
-            
+
             # Get predictions (use empty string as placeholder for change description)
             predictions = []
             try:
                 pred = prediction_engine.predict_risks("")
                 predictions = pred.predictions if hasattr(pred, 'predictions') else []
-            except Exception:
-                # If prediction fails, return empty list
-                pass
-            
+            except (ValueError, RuntimeError, AttributeError):
+                # If prediction fails, return empty list.
+                predictions = []
+
             return {
                 "risks": risks,
                 "predictions": predictions,
@@ -452,13 +458,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.post("/api/query")
     async def execute_query(request: QueryRequest):
         """Execute a natural language query."""
         try:
             result = query_engine.query_natural(request.question)
-            
+
             return {
                 "query": result.query,
                 "results": result.results,
@@ -467,17 +473,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.get("/api/llm/status")
     async def llm_status():
         """Get LLM configuration and status."""
         try:
-            from crumdbob.llm import get_llm_config, is_llm_available
-            
+            from crumdbob.llm import is_llm_available
+
             config = db.get_llm_config()
             available = is_llm_available()
             cache_stats = db.get_llm_cache_stats()
-            
+
             return {
                 "configured": config is not None,
                 "available": available,
@@ -486,30 +492,30 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.post("/api/llm/analyze/{session_id}")
     async def llm_analyze_session(session_id: int):
         """Analyze a session with LLM."""
         try:
             from crumdbob.llm import create_llm_analyzer
-            
+
             analyzer = create_llm_analyzer(db)
             if not analyzer:
                 raise HTTPException(
                     status_code=503,
                     detail="LLM not configured or unavailable"
                 )
-            
+
             # Get session data
             session = db.get_session(session_id)
             if not session:
                 raise HTTPException(status_code=404, detail="Session not found")
-            
+
             files = db.get_session_files(session_id)
             commands = db.get_session_commands(session_id)
             risks = db.get_session_risks(session_id)
             tasks = db.get_session_tasks(session_id)
-            
+
             session_data = {
                 "session_name": session.session_name,
                 "git_branch": session.git_branch,
@@ -523,9 +529,9 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 "risks": [r.description for r in risks],
                 "tasks": [t.description for t in tasks],
             }
-            
+
             response = analyzer.analyze_session(session_data)
-            
+
             return {
                 "content": response.content,
                 "provider": response.provider,
@@ -538,22 +544,22 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.post("/api/llm/explain")
     async def llm_explain_pattern(pattern_data: dict):
         """Get LLM explanation of a pattern."""
         try:
             from crumdbob.llm import create_llm_analyzer
-            
+
             analyzer = create_llm_analyzer(db)
             if not analyzer:
                 raise HTTPException(
                     status_code=503,
                     detail="LLM not configured or unavailable"
                 )
-            
+
             response = analyzer.explain_pattern(pattern_data)
-            
+
             return {
                 "content": response.content,
                 "provider": response.provider,
@@ -566,38 +572,38 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     @app.post("/api/llm/recommend/{session_id}")
     async def llm_recommend_actions(session_id: int):
         """Get LLM recommendations for a session."""
         try:
             from crumdbob.llm import create_llm_analyzer
-            
+
             analyzer = create_llm_analyzer(db)
             if not analyzer:
                 raise HTTPException(
                     status_code=503,
                     detail="LLM not configured or unavailable"
                 )
-            
+
             # Get session data
             session = db.get_session(session_id)
             if not session:
                 raise HTTPException(status_code=404, detail="Session not found")
-            
+
             files = db.get_session_files(session_id)
             risks = db.get_session_risks(session_id)
             tasks = db.get_session_tasks(session_id)
-            
+
             session_data = {
                 "session_name": session.session_name,
                 "files": [f.path for f in files],
                 "risks": [r.description for r in risks],
                 "tasks": [t.description for t in tasks],
             }
-            
+
             response = analyzer.recommend_actions(session_data)
-            
+
             return {
                 "content": response.content,
                 "provider": response.provider,
@@ -610,7 +616,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
+
     return app
 
 
@@ -621,7 +627,7 @@ def run_server(
     open_browser: bool = True,
 ) -> None:
     """Run the FastAPI server.
-    
+
     Args:
         host: Host to bind to
         port: Port to bind to
@@ -629,25 +635,25 @@ def run_server(
         open_browser: Whether to open browser automatically
     """
     import uvicorn
-    
+
     app = create_app(db_path)
-    
+
     # Open browser after a short delay
     if open_browser:
         import threading
         import time
-        
+
         def open_browser_delayed():
             time.sleep(1.5)
             webbrowser.open(f"http://{host}:{port}")
-        
+
         threading.Thread(target=open_browser_delayed, daemon=True).start()
-    
+
     print(f"🚀 Starting CrumbBob Dashboard at http://{host}:{port}")
     print(f"📊 API Documentation: http://{host}:{port}/api/docs")
     print(f"🗄️  Database: {db_path or get_default_db_path()}")
     print("\nPress Ctrl+C to stop the server")
-    
+
     uvicorn.run(app, host=host, port=port, log_level="info")
 
 # Made with Bob

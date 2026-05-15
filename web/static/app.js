@@ -37,6 +37,7 @@ function toggleTheme() {
 
 function updateThemeIcon() {
     const icon = document.getElementById('theme-icon');
+    if (!icon) return;
     icon.textContent = state.theme === 'light' ? '🌙' : '☀️';
 }
 
@@ -642,13 +643,28 @@ function getSeverityBadgeClass(severity) {
 
 function showLoading(viewId) {
     const view = document.getElementById(viewId);
-    if (view) {
-        view.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
-    }
+    if (!view) return;
+
+    view.classList.add('is-loading');
+    if (view.querySelector('.loading-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'loading-overlay';
+
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    spinner.setAttribute('aria-label', 'Loading');
+
+    overlay.appendChild(spinner);
+    view.appendChild(overlay);
 }
 
 function hideLoading(viewId) {
-    // Loading is replaced by actual content
+    const view = document.getElementById(viewId);
+    if (!view) return;
+
+    view.classList.remove('is-loading');
+    view.querySelector('.loading-overlay')?.remove();
 }
 
 function showError(message) {

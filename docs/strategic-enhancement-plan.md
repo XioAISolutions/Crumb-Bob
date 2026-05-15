@@ -1315,7 +1315,7 @@ export SLACK_WEBHOOK_URL="https://hooks.slack.com/..."
    crumdbob slack setup --webhook-url "https://hooks.slack.com/..."
    
    # LLM
-   crumdbob llm setup --provider openai --model gpt-4
+   crumdbob llm setup openai --model gpt-4
    export OPENAI_API_KEY="sk-..."
    ```
 

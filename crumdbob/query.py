@@ -136,6 +136,8 @@ class QueryEngine:
              lambda _m: self._command_frequency_query()),
 
             # Session queries
+            (r"(?:show|find|get|list)\s+(?:me\s+)?(?:all\s+)?(?:the\s+)?sessions?",
+             lambda _m: self._recent_sessions_query()),
             (r"(?:show|find|get|list)\s+(?:all\s+)?(?:recent|latest)\s+sessions?",
              lambda _m: self._recent_sessions_query()),
             (r"(?:show|find|get|list)\s+sessions?\s+(?:by|from)\s+(\w+)",

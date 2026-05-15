@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-import subprocess
+import subprocess  # nosec B404
 import sys
 from typing import Literal
 
@@ -26,7 +26,8 @@ GIT_TIMEOUT_SECONDS = 30
 def _run_git_command(args: list[str], cwd: Path | None = None, timeout: int = GIT_TIMEOUT_SECONDS) -> tuple[bool, str]:
     """Run a git command and return (success, output)."""
     try:
-        result = subprocess.run(
+        # Git arguments are fixed by CrumbBob callers; shell execution is disabled.
+        result = subprocess.run(  # nosec B603
             ["git"] + args,
             cwd=cwd,
             capture_output=True,
