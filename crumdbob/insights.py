@@ -450,10 +450,18 @@ class InsightsEngine:
         """Store insight in database, skipping duplicates by type + title."""
         cursor = self.db.conn.cursor()
 
-        # Skip if an identical insight already exists
+        # Skip if an identical insight already exists. We escape LIKE wildcards
+        # in the title so backslashes, percent signs, and underscores match
+        # literally instead of acting as patterns.
+        safe_title = (
+            insight.title
+            .replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
         cursor.execute(
-            "SELECT id FROM insights WHERE insight_type = ? AND content LIKE ?",
-            (insight.insight_type, f'%"title": "{insight.title}"%'),
+            "SELECT id FROM insights WHERE insight_type = ? AND content LIKE ? ESCAPE '\\'",
+            (insight.insight_type, f'%"title": "{safe_title}"%'),
         )
         if cursor.fetchone():
             return

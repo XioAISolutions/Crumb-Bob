@@ -106,6 +106,11 @@ class MemoryDatabase:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.db_path))
         self.conn.row_factory = sqlite3.Row
+        # Tune SQLite for concurrent reads + safer writes.
+        # WAL: readers don't block writers; foreign_keys: enforce CASCADE on session deletes.
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA foreign_keys=ON")
+        self.conn.execute("PRAGMA synchronous=NORMAL")
         
     def close(self) -> None:
         """Close database connection, committing any pending work."""
@@ -276,6 +281,9 @@ class MemoryDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_commands_session_id ON commands(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_risks_session_id ON risks(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_risks_status ON risks(status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_risks_description ON risks(description)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status_description ON tasks(status, description)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_commands_command ON commands(command)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_session_id ON tasks(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_relationships_session_id ON relationships(session_id)")
@@ -847,6 +855,15 @@ class MemoryDatabase:
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
+def _is_within(child: Path, parent: Path) -> bool:
+    """True iff *child* lives at or beneath *parent* after resolution."""
+    try:
+        child.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
 def get_default_db_path() -> Path:
     """Get default database path (~/.crumdbob/memory.db)."""
     return Path.home() / ".crumdbob" / "memory.db"
@@ -902,12 +919,43 @@ def record_pack_to_db(
         except (json.JSONDecodeError, OSError):
             pass
     
+    if source_report_path:
+        # Preserve historical behaviour: proof chains record paths relative to
+        # the cwd that ran `crumdbob pack`. Try that first, then fall back to
+        # paths relative to the pack itself. Apply a path-traversal guard so a
+        # malicious proof chain can't point at /etc/passwd or arbitrary files
+        # outside the pack's ancestor tree.
+        raw_path = Path(source_report_path)
+        candidates: list[Path] = []
+        if raw_path.is_absolute():
+            candidates.append(raw_path)
+        else:
+            candidates.extend([
+                (Path.cwd() / raw_path),
+                (pack_path / raw_path),
+                (pack_path.parent / raw_path),
+            ])
+
+        chosen: Path | None = None
+        # Allow paths anywhere under cwd or under the pack's ancestor chain.
+        cwd_resolved = Path.cwd().resolve()
+        pack_resolved = pack_path.resolve()
+        allowed_roots = {cwd_resolved, pack_resolved, pack_resolved.parent}
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            if not resolved.exists():
+                continue
+            if any(_is_within(resolved, root) for root in allowed_roots):
+                chosen = resolved
+                break
+        source_report_path = chosen  # may be None if all candidates failed the guard
+
     if not source_report_path:
         # Try parent directory
         source_report_path = pack_path.parent / "bob-report.md"
         if not source_report_path.exists():
             raise FileNotFoundError(f"Could not find source bob-report.md for pack: {pack_dir}")
-    
+
     # Parse report
     report = parse_bob_report(source_report_path)
     

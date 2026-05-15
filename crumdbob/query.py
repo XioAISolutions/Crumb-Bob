@@ -6,6 +6,7 @@ template-based queries for common use cases.
 from __future__ import annotations
 
 import re
+import sqlite3
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -202,32 +203,48 @@ class QueryEngine:
             explanation=f"Template query '{template}' with params: {query_params}"
         )
     
+    # Disallow any statement that could mutate the database — query_sql is a
+    # read-only escape hatch for analysts, not a way to DROP TABLE.
+    _FORBIDDEN_SQL_KEYWORDS = (
+        "insert", "update", "delete", "drop", "alter", "create",
+        "replace", "attach", "detach", "pragma", "vacuum", "truncate",
+    )
+
     def query_sql(self, sql: str) -> QueryResult:
-        """Execute raw SQL query (for power users).
-        
-        Args:
-            sql: SQL query string
-            
-        Returns:
-            QueryResult with results
+        """Execute a read-only SQL query.
+
+        Statements containing any DDL/DML keywords are rejected up front and
+        the connection is queried via a read-only cursor pattern (SELECT only).
         """
+        normalized = sql.strip().lower()
+        if not normalized:
+            return QueryResult(query=sql, results=[], row_count=0,
+                               explanation="SQL error: empty query")
+        # Detect multiple statements (semicolons inside identifiers are rare here).
+        if ";" in normalized.rstrip(";").strip():
+            return QueryResult(query=sql, results=[], row_count=0,
+                               explanation="SQL error: multiple statements not allowed")
+        for keyword in self._FORBIDDEN_SQL_KEYWORDS:
+            if re.search(rf"\b{keyword}\b", normalized):
+                return QueryResult(query=sql, results=[], row_count=0,
+                                   explanation=f"SQL error: '{keyword}' is not permitted (read-only mode)")
+
         try:
             cursor = self.db.conn.cursor()
             cursor.execute(sql)
             results = [dict(row) for row in cursor.fetchall()]
-            
             return QueryResult(
                 query=sql,
                 results=results,
                 row_count=len(results),
                 explanation="Direct SQL query executed"
             )
-        except Exception as e:
+        except sqlite3.Error as e:
             return QueryResult(
                 query=sql,
                 results=[],
                 row_count=0,
-                explanation=f"SQL error: {str(e)}"
+                explanation=f"SQL error: {e}"
             )
     
     def list_templates(self) -> list[str]:

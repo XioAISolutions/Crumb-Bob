@@ -14,15 +14,43 @@ Bob report + repo metadata + test output + git diff
 
 ## Quickstart
 
+### Installation
+
+**Recommended: Use a virtual environment**
+
 ```bash
-pip install -e . pytest
-pytest -q
-crumdbob pack examples/compliance-ai --out examples/compliance-ai/generated
-crumdbob doctor examples/compliance-ai/generated
-crumdbob replay examples/compliance-ai/generated
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install CrumbBob in editable mode with dev dependencies
+pip install -e .[dev]
+
+# Verify installation
+crumdbob --help
 ```
 
-On Homebrew-managed Python, use a virtualenv before the same install command.
+**Optional: Install watch mode support**
+
+```bash
+pip install -e .[watch]
+```
+
+### Quick Test
+
+```bash
+# Run test suite (130+ tests)
+pytest -q
+
+# Generate example pack
+crumdbob pack examples/compliance-ai --out examples/compliance-ai/generated
+
+# Verify pack integrity
+crumdbob doctor examples/compliance-ai/generated
+
+# Generate replay prompt
+crumdbob replay examples/compliance-ai/generated
+```
 
 **Quick Win: Auto-collect artifacts from your Git repo:**
 

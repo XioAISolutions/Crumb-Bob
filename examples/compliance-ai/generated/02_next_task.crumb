@@ -7,7 +7,7 @@ id=next-task
 refs=repo-genome,session-flight-recorder,test-plan,risk-register
 ---
 [goal]
-The repo has a strong README, but the onboarding path can be improved with a judge-first quickstart and a single demo script.
+Gap: add a short replay prompt so Bob or another AI agent can continue from prior repo analysis.
 
 [context]
 Bob analyzed the XIO Compliance Brain repository as a complex AI-assisted legal workbench. The repo is a Canadian compliance review system with document intake, task-specific legal reviewer personas, structured citation verification, approval gating, audit trails, and DOCX export.

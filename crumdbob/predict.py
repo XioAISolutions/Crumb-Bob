@@ -97,40 +97,38 @@ class PredictionEngine:
         """
         # Extract keywords from description
         keywords = self._extract_keywords(change_description)
-        
-        # Find similar past risks
+
+        # Build one query with OR'd LIKE clauses instead of firing N separate queries
         cursor = self.db.conn.cursor()
-        
-        similar_risks = []
-        for keyword in keywords:
-            cursor.execute("""
-                SELECT DISTINCT r.description, COUNT(DISTINCT r.session_id) as frequency,
+        if not keywords:
+            unique_risks: list[dict[str, Any]] = []
+        else:
+            like_clauses = " OR ".join(["r.description LIKE ?"] * len(keywords))
+            params = [f"%{kw}%" for kw in keywords]
+            cursor.execute(f"""
+                SELECT r.description, COUNT(DISTINCT r.session_id) as frequency,
                        r.status, MAX(r.last_seen) as last_seen
                 FROM risks r
-                WHERE r.description LIKE ?
-                GROUP BY r.description
+                WHERE {like_clauses}
+                GROUP BY r.description, r.status
                 ORDER BY frequency DESC
-                LIMIT 5
-            """, (f"%{keyword}%",))
-            
+                LIMIT 25
+            """, params)
+
+            # Dict preserves insertion order, so dedup by description while keeping
+            # the highest-frequency row first.
+            by_desc: dict[str, dict[str, Any]] = {}
             for row in cursor.fetchall():
-                similar_risks.append({
-                    "risk": row["description"],
+                desc = row["description"]
+                if desc in by_desc:
+                    continue
+                by_desc[desc] = {
+                    "risk": desc,
                     "frequency": row["frequency"],
                     "status": row["status"],
                     "last_seen": row["last_seen"],
-                    "keyword": keyword,
-                })
-        
-        # Remove duplicates and sort by frequency
-        seen = set()
-        unique_risks = []
-        for risk in similar_risks:
-            if risk["risk"] not in seen:
-                seen.add(risk["risk"])
-                unique_risks.append(risk)
-        
-        unique_risks.sort(key=lambda x: x["frequency"], reverse=True)
+                }
+            unique_risks = sorted(by_desc.values(), key=lambda x: x["frequency"], reverse=True)
         
         # Calculate confidence based on keyword matches and frequency
         if unique_risks:
@@ -163,31 +161,34 @@ class PredictionEngine:
         """
         # Extract keywords
         keywords = self._extract_keywords(task_description)
-        
-        # Find similar past tasks
+
         cursor = self.db.conn.cursor()
-        
-        similar_tasks = []
-        for keyword in keywords:
-            cursor.execute("""
+        similar_tasks: list[dict[str, Any]] = []
+        if keywords:
+            like_clauses = " OR ".join(["t.description LIKE ?"] * len(keywords))
+            params = [f"%{kw}%" for kw in keywords]
+            cursor.execute(f"""
                 SELECT t.description, t.status,
                        julianday(t.last_seen) - julianday(t.first_seen) as duration_days,
                        t.first_seen, t.last_seen
                 FROM tasks t
-                WHERE t.description LIKE ?
-                AND duration_days > 0
+                WHERE ({like_clauses})
+                AND julianday(t.last_seen) - julianday(t.first_seen) > 0
                 ORDER BY t.last_seen DESC
-                LIMIT 10
-            """, (f"%{keyword}%",))
-            
+                LIMIT 50
+            """, params)
+
+            seen_descriptions: set[str] = set()
             for row in cursor.fetchall():
+                if row["description"] in seen_descriptions:
+                    continue
+                seen_descriptions.add(row["description"])
                 similar_tasks.append({
                     "task": row["description"],
                     "status": row["status"],
                     "duration_days": row["duration_days"],
                     "first_seen": row["first_seen"],
                     "last_seen": row["last_seen"],
-                    "keyword": keyword,
                 })
         
         # Calculate average duration
@@ -271,24 +272,26 @@ class PredictionEngine:
         # Also look for test files that historically appear with these files
         cursor = self.db.conn.cursor()
         
-        test_recommendations = []
-        for file_path in file_paths:
-            cursor.execute("""
-                SELECT f2.path, COUNT(DISTINCT f1.session_id) as co_occurrence
+        # One query across all file_paths — replaces N+1 loop.
+        test_recommendations: list[dict[str, Any]] = []
+        if file_paths:
+            placeholders = ",".join(["?"] * len(file_paths))
+            cursor.execute(f"""
+                SELECT f1.path AS related_to, f2.path AS test_path,
+                       COUNT(DISTINCT f1.session_id) AS co_occurrence
                 FROM files f1
                 JOIN files f2 ON f1.session_id = f2.session_id
-                WHERE f1.path = ?
-                AND (f2.path LIKE '%test%' OR f2.path LIKE '%spec%')
-                GROUP BY f2.path
+                WHERE f1.path IN ({placeholders})
+                  AND (f2.path LIKE '%test%' OR f2.path LIKE '%spec%')
+                GROUP BY f1.path, f2.path
                 ORDER BY co_occurrence DESC
-                LIMIT 5
-            """, (file_path,))
-            
+                LIMIT {5 * len(file_paths)}
+            """, file_paths)
             for row in cursor.fetchall():
                 test_recommendations.append({
-                    "test_file": row["path"],
+                    "test_file": row["test_path"],
                     "co_occurrence": row["co_occurrence"],
-                    "related_to": file_path,
+                    "related_to": row["related_to"],
                 })
         
         # Combine and deduplicate

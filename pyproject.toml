@@ -13,6 +13,9 @@ authors = [{ name = "XIO AI Solutions" }]
 keywords = ["ibm-bob", "ai", "developer-tools", "handoff", "crumb"]
 classifiers = [
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
   "Topic :: Software Development :: Documentation",
   "Topic :: Software Development :: Quality Assurance",
   "Topic :: Scientific/Engineering :: Artificial Intelligence"
@@ -20,6 +23,11 @@ classifiers = [
 
 [project.optional-dependencies]
 watch = ["watchdog>=3.0.0"]
+dev = [
+  "pytest>=7.0",
+  "pytest-cov>=4.0",
+  "mypy>=1.0"
+]
 
 [project.scripts]
 crumdbob = "crumdbob.cli:main"
