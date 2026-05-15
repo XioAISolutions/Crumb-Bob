@@ -24,6 +24,7 @@ CrumbBob imports a Bob report and generates a portable memory pack:
 6. Agent Passport
 7. Replay Prompt
 8. PR Summary
+9. Proof Chain
 
 The next developer or AI agent can continue from the prior Bob session without rereading the whole repo or chat history.
 
@@ -46,3 +47,7 @@ The example pack uses XIO Compliance Brain, a Canadian AI-assisted legal workben
 ## Judging hook
 
 Most teams use Bob to build an app. CrumbBob builds the missing memory layer around Bob.
+
+## Proof Chain
+
+CrumbBob now writes `08_proof_chain.json` with the source report hash, generated file hashes, extracted counts, timestamp, and version. The pack is not just a markdown conversion; it is replayable, inspectable, and hash-bound to its source session.

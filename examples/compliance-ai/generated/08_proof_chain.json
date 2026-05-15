@@ -1,0 +1,64 @@
+{
+  "crumdbob_version": "0.2.0",
+  "extracted_counts": {
+    "commands": 9,
+    "files": 12,
+    "next_steps": 8,
+    "risks": 7,
+    "tests": 9
+  },
+  "generated_files": [
+    {
+      "bytes": 5153,
+      "path": "00_repo_genome.crumb",
+      "sha256": "af975d1c8310ca7d5c2cbc6c420465b0a64619f62f12c062ddf08d5c7d72e828"
+    },
+    {
+      "bytes": 4445,
+      "path": "01_session_flight_recorder.crumb",
+      "sha256": "e2bf80e3c657d3ef7516ed4d520d5d9a44408baa403f4a726bcda563526dfecd"
+    },
+    {
+      "bytes": 5376,
+      "path": "02_next_task.crumb",
+      "sha256": "7927317d7eb21dff95d75b9ff23cc77d6ce6d6e7d1c3d7a2e7e1e4805e6c601d"
+    },
+    {
+      "bytes": 4307,
+      "path": "03_test_plan.crumb",
+      "sha256": "ed1ce0e988f4fde64ff5e8515a74b4b9551ffbd086bfb9d58a2293c6bce55146"
+    },
+    {
+      "bytes": 4694,
+      "path": "04_risk_register.crumb",
+      "sha256": "fb06c2d92518bf5b08f3f32705dfe1c4770792311a02f7eca1d49d12005e1e08"
+    },
+    {
+      "bytes": 2871,
+      "path": "05_agent_passport.crumb",
+      "sha256": "220bce5086fb6030c9080bb98bc3996e1b52ed1535347c69d6c070377cb1c1d4"
+    },
+    {
+      "bytes": 934,
+      "path": "06_replay_prompt.md",
+      "sha256": "a0afc69b2e93d03a63319be35d37165c4c0628cb39ed515c99cb01b7de8959f1"
+    },
+    {
+      "bytes": 1059,
+      "path": "07_pr_summary.md",
+      "sha256": "1f5cffc262ff0e1c46471f3942dfa18e121a0ebde914f76d24233cb0b4417ea2"
+    }
+  ],
+  "notes": [
+    "generated_files excludes 08_proof_chain.json to avoid recursive self-hashing.",
+    "Re-run CrumbBob after source report or pack changes to refresh this proof chain."
+  ],
+  "schema": "crumdbob.proof-chain.v1",
+  "source_artifacts": [],
+  "source_report": {
+    "bytes": 3639,
+    "path": "examples/compliance-ai/bob-report.md",
+    "sha256": "e39a650b3d990feda7c0f9172fee26886ae75313b04c7eef19b22a490290d0a7"
+  },
+  "timestamp_utc": "2026-05-15T15:18:29Z"
+}

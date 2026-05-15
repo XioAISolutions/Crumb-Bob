@@ -15,7 +15,7 @@
 Run:
 
 ```bash
-crumdbob import examples/compliance-ai/bob-report.md --out examples/compliance-ai/generated
+crumdbob pack examples/compliance-ai --out examples/compliance-ai/generated
 ```
 
 ## 1:10 - Show generated pack
@@ -31,9 +31,22 @@ Open:
 05_agent_passport.crumb
 06_replay_prompt.md
 07_pr_summary.md
+08_proof_chain.json
 ```
 
-## 1:40 - Replay moment
+## 1:40 - Trust check
+
+Run:
+
+```bash
+crumdbob validate examples/compliance-ai/generated
+crumdbob doctor examples/compliance-ai/generated
+crumdbob graph examples/compliance-ai/generated
+```
+
+Show that the output is validated, dependency-linked, and hash-bound to the source Bob report.
+
+## 2:05 - Replay moment
 
 Run:
 
@@ -43,7 +56,7 @@ crumdbob replay examples/compliance-ai/generated
 
 Show that the replay prompt tells the next Bob session exactly what to load and how to continue.
 
-## 2:10 - PR handoff
+## 2:30 - PR handoff
 
 Run:
 
@@ -53,6 +66,10 @@ crumdbob pr examples/compliance-ai/generated
 
 Show that the Bob session becomes a clean review artifact.
 
-## 2:30 - Close
+## 2:50 - Web demo
+
+Open `web/index.html`, paste a Bob report, and click **Generate Demo Pack**.
+
+## 3:20 - Close
 
 "Bob gives software a temporary brain. CrumbBob gives that brain memory."

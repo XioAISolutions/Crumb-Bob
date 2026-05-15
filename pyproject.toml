@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crumdbob"
-version = "0.1.0"
+version = "0.2.0"
 description = "Replayable software memory for IBM Bob development sessions."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,8 +18,14 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]
 
+[project.optional-dependencies]
+watch = ["watchdog>=3.0.0"]
+
 [project.scripts]
 crumdbob = "crumdbob.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["crumdbob*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

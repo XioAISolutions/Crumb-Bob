@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CrumbBob Demo</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div class="hero-copy">
+          <h1>Your AI built it. CrumbBob remembers why.</h1>
+          <p>Paste an IBM Bob report and generate a replayable memory pack preview with repo genome, flight recorder, risks, replay prompt, and proof metadata.</p>
+        </div>
+        <div class="proof-rail" aria-label="Proof chain preview">
+          <svg viewBox="0 0 420 220" role="img" aria-label="Bob report to CRUMB proof chain">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3" orient="auto">
+                <path d="M0,0 L0,6 L8,3 z" fill="currentColor"></path>
+              </marker>
+            </defs>
+            <g class="node">
+              <rect x="20" y="34" width="112" height="58" rx="8"></rect>
+              <text x="76" y="68">Bob report</text>
+            </g>
+            <g class="node">
+              <rect x="154" y="34" width="112" height="58" rx="8"></rect>
+              <text x="210" y="68">CRUMBs</text>
+            </g>
+            <g class="node">
+              <rect x="288" y="34" width="112" height="58" rx="8"></rect>
+              <text x="344" y="68">Replay</text>
+            </g>
+            <g class="node">
+              <rect x="154" y="128" width="112" height="58" rx="8"></rect>
+              <text x="210" y="162">Proof hash</text>
+            </g>
+            <path class="edge" d="M132 63 H154" marker-end="url(#arrow)"></path>
+            <path class="edge" d="M266 63 H288" marker-end="url(#arrow)"></path>
+            <path class="edge" d="M210 92 V128" marker-end="url(#arrow)"></path>
+          </svg>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="CrumbBob generator">
+        <div class="input-pane">
+          <div class="pane-header">
+            <h2>Bob Report</h2>
+            <button id="load-sample" type="button">Load Sample</button>
+          </div>
+          <textarea id="bob-report" spellcheck="false"></textarea>
+          <button id="generate" class="primary" type="button">Generate Demo Pack</button>
+        </div>
+
+        <div class="output-pane">
+          <div class="status-bar" id="status">Ready</div>
+          <div class="panel-grid">
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Repo Genome</h2>
+                <button class="copy" data-copy="repo-genome" type="button">Copy</button>
+              </div>
+              <pre id="repo-genome"></pre>
+            </article>
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Flight Recorder</h2>
+                <button class="copy" data-copy="flight-recorder" type="button">Copy</button>
+              </div>
+              <pre id="flight-recorder"></pre>
+            </article>
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Risk Register</h2>
+                <button class="copy" data-copy="risk-register" type="button">Copy</button>
+              </div>
+              <pre id="risk-register"></pre>
+            </article>
+            <article class="panel">
+              <div class="panel-header">
+                <h2>Replay Prompt</h2>
+                <button class="copy" data-copy="replay-prompt" type="button">Copy</button>
+              </div>
+              <pre id="replay-prompt"></pre>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="./demo.js"></script>
+  </body>
+</html>

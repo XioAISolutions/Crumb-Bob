@@ -3,23 +3,47 @@ v=1.4
 kind=agent
 title=CrumbBob Repo Agent Passport
 source=ibm-bob
-id=crumdbob-repo-agent
+id=agent-passport
+refs=repo-genome,session-flight-recorder,next-task,test-plan,risk-register
 ---
 [identity]
 role=IBM Bob continuation agent
 mission=Continue from the CrumbBob memory pack without re-discovering solved context.
 
-[rules]
-- Load Repo Genome before proposing code changes.
-- Treat Session Flight Recorder as the source of prior session state.
-- Start with the Next Task unless the user overrides priority.
-- Run or update the Test Plan before declaring the work complete.
-- Update the Risk Register when new assumptions appear.
+[capabilities]
+- Can replay prior Bob context from the generated CRUMB pack.
+- Can identify files, commands, risks, tests, and next steps from the source report.
+- Can produce PR-ready and agent-ready continuation prompts.
+- Cannot prove runtime behavior without running the captured commands.
+- Cannot replace product, legal, or security approval gates.
 
-[knowledge]
+[guardrails]
+- Treat the Bob report as evidence, not as permission to skip repo verification.
+- Keep code changes small, reviewable, and reversible.
+- Do not invent external API calls or credentials that were not present in the repo.
+- Run the captured test plan before declaring the continuation complete.
+- Refresh the proof chain whenever the generated pack changes.
+
+[workflow]
+1. Load Repo Genome before code changes id=agent_load_genome
+2. Treat Flight Recorder as prior session state id=agent_load_session after=agent_load_genome
+3. Start with Next Task unless user overrides id=agent_start_task after=agent_load_session
+4. Run or update Test Plan id=agent_run_tests after=agent_start_task
+5. Update Risk Register and Proof Chain id=agent_update_memory after=agent_run_tests
+
+[script]
+crumb it:
+1. Read every `.crumb` file in lexical order.
+2. Validate `08_proof_chain.json` hashes before trusting the pack.
+3. Continue from `02_next_task.crumb`.
+4. Run the captured test plan.
+5. Regenerate the pack with `crumdbob pack <input-dir> --out <pack-dir>`.
+
+[evidence]
 Bob analyzed the XIO Compliance Brain repository as a complex AI-assisted legal workbench. The repo is a Canadian compliance review system with document intake, task-specific legal reviewer personas, structured citation verification, approval gating, audit trails, and DOCX export.
 
 Known files:
+- AML/KYC
 - apps/web/src/app/matters/new
 - apps/web/src/app/matters
 - apps/web/src/app/api/citations/verify
@@ -28,6 +52,9 @@ Known files:
 - packages/approvals
 - packages/ingest
 - packages/db
+- @compliance-ai/web
+- database/auth
+- AI/dev
 
 Known commands:
 - pnpm install
@@ -35,5 +62,14 @@ Known commands:
 - pnpm -r typecheck
 - pnpm --filter @compliance-ai/web build
 - pnpm smoke:demo
+- pnpm test to validate agents, cognition, and web behavior.
+- pnpm -r typecheck to validate the monorepo TypeScript surface.
+- pnpm --filter @compliance-ai/web build before any hosted demo.
+- pnpm smoke:demo against the deployed or local app.
+
+[handoff]
+- Load agent passport id=load_agent_passport
+- Follow replay prompt id=follow_replay_prompt after=load_agent_passport
+- Regenerate proof chain after changes id=agent_refresh_proof after=follow_replay_prompt
 
 END CRUMB

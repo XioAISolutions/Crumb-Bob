@@ -2,7 +2,7 @@
 
 You are IBM Bob continuing from a previous repo-aware development session.
 
-Load the attached files in this order:
+Load these files in order:
 
 1. `00_repo_genome.crumb`
 2. `01_session_flight_recorder.crumb`
@@ -10,16 +10,16 @@ Load the attached files in this order:
 4. `03_test_plan.crumb`
 5. `04_risk_register.crumb`
 6. `05_agent_passport.crumb`
+7. `08_proof_chain.json`
 
-Your job:
+Continue from the previous Bob findings. Do not re-discover captured context. Validate the current repo state, implement the next task, run the test plan, update the flight recorder, and regenerate the proof chain.
 
-- Continue from the previous Bob findings.
-- Do not re-discover context already captured in the Repo Genome.
-- Validate the current repo state before changing code.
-- Implement the Next Task or explain why another task should come first.
-- Run the Test Plan.
-- Update the Session Flight Recorder after completion.
+Project summary: Bob analyzed the XIO Compliance Brain repository as a complex AI-assisted legal workbench. The repo is a Canadian compliance review system with document intake, task-specific legal reviewer personas, structured citation verification, approval gating, audit trails, and DOCX export.
 
-Project summary:
+Suggested commands:
 
-Bob analyzed the XIO Compliance Brain repository as a complex AI-assisted legal workbench. The repo is a Canadian compliance review system with document intake, task-specific legal reviewer personas, structured citation verification, approval gating, audit trails, and DOCX export.
+```bash
+crumdbob validate .
+crumdbob graph .
+crumdbob doctor .
+```

@@ -3,6 +3,8 @@ v=1.4
 kind=audit
 title=Session Flight Recorder
 source=ibm-bob
+id=session-flight-recorder
+refs=repo-genome,next-task,test-plan,risk-register,proof-chain
 ---
 [goal]
 Preserve IBM Bob's repository understanding as a replayable development memory pack.
@@ -10,12 +12,41 @@ Preserve IBM Bob's repository understanding as a replayable development memory p
 [actions]
 - Parsed source report: examples/compliance-ai/bob-report.md
 - Extracted repo summary, files, commands, risks, tests, and next steps.
-- Generated CRUMB handoffs for replay, PR review, and future AI sessions.
+- Generated CRUMB handoffs for replay, PR review, future AI sessions, and proof-chain review.
 
 [verdict]
-CrumbBob pack generated. A future developer or AI agent can continue from this session without re-reading the full Bob report.
+CrumbBob pack generated. A future developer or AI agent can continue without re-reading the full Bob report.
+
+[workflow]
+1. Replay captured summary id=session_replay
+2. Validate extracted risks and tests id=session_validate after=session_replay
+3. Update pack after continuation work id=session_update after=session_validate
+
+[checks]
+source-report :: hash-bound in proof chain
+replay-prompt :: generated
+pr-summary :: generated
+audit-verdict :: captured
+
+[guardrails]
+- Treat the Bob report as evidence, not as permission to skip repo verification.
+- Keep code changes small, reviewable, and reversible.
+- Do not invent external API calls or credentials that were not present in the repo.
+- Run the captured test plan before declaring the continuation complete.
+- Refresh the proof chain whenever the generated pack changes.
+
+[capabilities]
+- Can replay prior Bob context from the generated CRUMB pack.
+- Can identify files, commands, risks, tests, and next steps from the source report.
+- Can produce PR-ready and agent-ready continuation prompts.
+- Cannot prove runtime behavior without running the captured commands.
+- Cannot replace product, legal, or security approval gates.
 
 [evidence]
+Source report:
+- examples/compliance-ai/bob-report.md
+
+Extracted source snippets:
 - Canadian legal workbench for AI-assisted review of securities, privacy, AML/KYC, marketing, deficiency-response, court AI disclosure, missing-authority scan, and contract redline matters.
 - The user uploads a document, selects a review lane, receives structured output with citations, verifies citations, requests approval, and exports filed-work-product-ready DOCX.
 - The strongest enterprise claim is not generic AI review. It is source-locked output, citation verification, hash-bound approval, and export gating.
@@ -24,9 +55,46 @@ CrumbBob pack generated. A future developer or AI agent can continue from this s
 - apps/web/src/app/api/matters/[id]/review streams review output and verifications.
 - apps/web/src/app/api/citations/verify checks citations against offline corpus and CanLII URL heuristics.
 - packages/agents contains task-specific reviewer personas and retrieval plans.
-- packages/cognition contains the seeded authority corpus, hybrid retrieval, source locker, source packs, and verifier.
-- packages/approvals contains the hash-bound approval state machine.
-- packages/ingest parses PDF, DOCX, and TXT files.
-- packages/db contains Drizzle schema, migrations, and RLS helpers.
+
+Files:
+- AML/KYC
+- apps/web/src/app/matters/new
+- apps/web/src/app/matters
+- apps/web/src/app/api/citations/verify
+- packages/agents
+- packages/cognition
+- packages/approvals
+- packages/ingest
+- packages/db
+- @compliance-ai/web
+- database/auth
+- AI/dev
+
+Commands:
+- pnpm install
+- pnpm test
+- pnpm -r typecheck
+- pnpm --filter @compliance-ai/web build
+- pnpm smoke:demo
+- pnpm test to validate agents, cognition, and web behavior.
+- pnpm -r typecheck to validate the monorepo TypeScript surface.
+- pnpm --filter @compliance-ai/web build before any hosted demo.
+
+Risks:
+- Canadian legal workbench for AI-assisted review of securities, privacy, AML/KYC, marketing, deficiency-response, court AI disclosure, missing-authority scan, and contract redline matters.
+- Risk: judges may misunderstand the product as generic RAG unless the demo foregrounds citation verification, source locker metadata, and approval-gated export.
+- Risk: local setup may feel heavy if the first-run path requires database/auth configuration.
+- Risk: legal AI claims require careful wording; position as AI-assisted workbench, not legal advice automation.
+- Gap: add a short replay prompt so Bob or another AI agent can continue from prior repo analysis.
+- Gap: add a PR summary template that turns Bob findings into a review-ready GitHub artifact.
+- Add Risk Register and Test Plan as CRUMB handoffs.
+
+Additional source artifacts:
+- None supplied.
+
+[handoff]
+- Confirm Bob source report is present id=confirm_source
+- Compare current repo state against captured actions id=compare_state after=confirm_source
+- Append new findings to a refreshed flight recorder id=refresh_flight_recorder after=compare_state
 
 END CRUMB

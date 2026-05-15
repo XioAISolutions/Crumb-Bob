@@ -1,0 +1,250 @@
+:root {
+  color-scheme: light;
+  --bg: #f7f9fb;
+  --ink: #17212b;
+  --muted: #5f6b77;
+  --line: #d7dde5;
+  --panel: #ffffff;
+  --panel-strong: #eef4f6;
+  --accent: #0b6bcb;
+  --accent-strong: #084f96;
+  --good: #157347;
+  --shadow: 0 18px 45px rgba(19, 31, 44, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+textarea {
+  font: inherit;
+}
+
+button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: #a8b5c4;
+}
+
+.shell {
+  width: min(1180px, calc(100vw - 32px));
+  margin: 0 auto;
+  padding: 30px 0 40px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 28px;
+  align-items: center;
+  min-height: 270px;
+}
+
+.hero-copy h1 {
+  max-width: 780px;
+  margin: 0;
+  font-size: clamp(2.5rem, 7vw, 5.9rem);
+  line-height: 0.94;
+  letter-spacing: 0;
+}
+
+.hero-copy p {
+  max-width: 660px;
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.proof-rail {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.proof-rail svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: var(--accent);
+}
+
+.node rect {
+  fill: var(--panel-strong);
+  stroke: #9db0c1;
+}
+
+.node text {
+  fill: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.edge {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(300px, 410px) minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 28px;
+}
+
+.input-pane,
+.output-pane {
+  min-width: 0;
+}
+
+.pane-header,
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.pane-header {
+  margin-bottom: 10px;
+}
+
+#bob-report {
+  width: 100%;
+  min-height: 455px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  line-height: 1.45;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.primary {
+  width: 100%;
+  margin-top: 12px;
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+  font-weight: 750;
+}
+
+.primary:hover {
+  border-color: var(--accent-strong);
+  background: var(--accent-strong);
+}
+
+.status-bar {
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.status-bar.ready {
+  color: var(--good);
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.panel-header {
+  min-height: 50px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.copy {
+  padding: 0 12px;
+  font-size: 0.88rem;
+}
+
+pre {
+  min-height: 235px;
+  max-height: 360px;
+  overflow: auto;
+  margin: 0;
+  padding: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #263442;
+  font: 0.86rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+@media (max-width: 900px) {
+  .hero,
+  .workspace,
+  .panel-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    min-height: auto;
+  }
+
+  #bob-report {
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 520px) {
+  .shell {
+    width: min(100vw - 20px, 1180px);
+    padding-top: 18px;
+  }
+
+  .hero-copy h1 {
+    font-size: 2.35rem;
+    line-height: 1;
+  }
+
+  .proof-rail {
+    padding: 10px;
+  }
+}
