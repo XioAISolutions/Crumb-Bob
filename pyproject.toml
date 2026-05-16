@@ -198,6 +198,8 @@ ignore = [
 "examples/*" = ["ALL"]
 "crumdbob/cli.py" = ["T20", "PLR0911", "PLC0415"]   # CLI is allowed to print; lazy imports keep extras optional
 "crumdbob/ui.py" = ["T20"]    # Rich UI fallback uses print
+"crumdbob/collector.py" = ["S603"]  # subprocess with fixed git args
+"crumdbob/memory.py" = ["S603"]     # subprocess with fixed git args
 "web/api/server.py" = ["B008"] # FastAPI Query() default pattern
 
 [tool.ruff.lint.isort]

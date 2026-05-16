@@ -1208,7 +1208,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
 
     try:
         # Get branch
-        result = subprocess.run(  # nosec B603 B607  # noqa: S603
+        result = subprocess.run(
             [GIT_EXECUTABLE, "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=path,
             capture_output=True,
@@ -1220,7 +1220,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
             context["branch"] = result.stdout.strip()
 
         # Get commit
-        result = subprocess.run(  # nosec B603 B607  # noqa: S603
+        result = subprocess.run(
             [GIT_EXECUTABLE, "rev-parse", "HEAD"],
             cwd=path,
             capture_output=True,
@@ -1232,7 +1232,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
             context["commit"] = result.stdout.strip()[:12]
 
         # Get author
-        result = subprocess.run(  # nosec B603 B607  # noqa: S603
+        result = subprocess.run(
             [GIT_EXECUTABLE, "config", "user.name"],
             cwd=path,
             capture_output=True,

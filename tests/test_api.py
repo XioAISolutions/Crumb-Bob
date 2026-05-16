@@ -11,11 +11,11 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # noqa: E402
 
-from crumdbob.memory import MemoryDatabase, init_database
-from crumdbob.parser import BobReport
-from web.api.server import create_app
+from crumdbob.memory import MemoryDatabase, init_database  # noqa: E402
+from crumdbob.parser import BobReport  # noqa: E402
+from web.api.server import create_app  # noqa: E402
 
 
 @pytest.fixture
