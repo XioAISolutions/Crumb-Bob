@@ -1324,7 +1324,7 @@ The Multi-Session Memory System transforms CrumbBob from a simple converter into
 5. **Quality Gates**: Prevent issues based on historical data
 
 **Value Proposition**: 
-- Reduces context-switching time by 80%
+- Reduces repeated context gathering over time
 - Prevents recurring issues through pattern detection
 - Accelerates onboarding with institutional knowledge
 - Improves code quality through predictive insights

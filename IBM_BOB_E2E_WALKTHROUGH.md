@@ -1,4 +1,4 @@
-# IBM Bob — End-to-End Walkthrough of CrumdBob v0.3.1
+# IBM Bob — End-to-End Walkthrough of CrumbBob v0.3.1
 
 **Use this prompt verbatim.** Paste the whole document into IBM Bob
 (`bob --chat-mode ask --hide-intermediary-output "$(cat IBM_BOB_E2E_WALKTHROUGH.md)"`)
@@ -9,7 +9,7 @@ audit confirming that the v0.3.1 enterprise-hardening pass is production-ready.
 
 ## Your job
 
-You are conducting a **release-gate audit** of CrumdBob v0.3.1. The
+You are conducting a **release-gate audit** of CrumbBob v0.3.1. The
 codebase has just received a substantial enterprise-grade hardening
 pass: structured logging, observability middleware, rate limiting,
 audit logging, migration framework, API versioning, Docker support,
@@ -477,7 +477,7 @@ db.close()
 Produce a single markdown report with this structure:
 
 ```markdown
-# CrumdBob v0.3.1 — IBM Bob audit, <date>
+# CrumbBob v0.3.1 — IBM Bob audit, <date>
 
 ## Verdict
 

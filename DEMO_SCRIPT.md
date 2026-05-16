@@ -68,7 +68,7 @@ Show that the Bob session becomes a clean review artifact.
 
 ## 2:50 - Web demo
 
-Open `web/index.html`, paste a Bob report, and click **Generate Demo Pack**.
+Run `crumdbob serve --no-browser`, open `http://localhost:8000`, and show the dashboard reading the recorded pack data.
 
 ## 3:20 - Close
 

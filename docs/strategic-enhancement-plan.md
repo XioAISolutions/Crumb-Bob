@@ -52,9 +52,9 @@ CrumbBob has achieved solid foundations with:
    - [`crumdbob/insights.py`](crumdbob/insights.py) - Actionable insights
    - [`crumdbob/predict.py`](crumdbob/predict.py) - Predictive analytics
 
-4. **Web Foundation** ([`web/index.html`](web/index.html))
-   - Static demo exists
-   - Ready for enhancement to full dashboard
+4. **Web Foundation** ([`web/static/index.html`](../web/static/index.html))
+   - Served dashboard shell exists
+   - Ready for deeper dashboard workflows
 
 5. **Configuration** ([`crumdbob/config.py`](crumdbob/config.py))
    - JSON-based config system

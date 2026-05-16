@@ -6,7 +6,7 @@
 2. `examples/compliance-ai/bob-report.md` for the input Bob report.
 3. `examples/compliance-ai/generated/` for the generated CrumbBob pack.
 4. `examples/compliance-ai/generated/08_proof_chain.json` for source and generated file hashes.
-5. `web/index.html` for the local static demo.
+5. `web/static/index.html` served through `crumdbob serve` for the local dashboard.
 6. `DEMO_SCRIPT.md` for the video flow.
 
 ## Run it
@@ -20,6 +20,7 @@ crumdbob doctor /tmp/crumdbob-pack
 crumdbob graph /tmp/crumdbob-pack
 crumdbob replay /tmp/crumdbob-pack
 crumdbob pr /tmp/crumdbob-pack
+crumdbob serve --no-browser
 ```
 
 ## Why this matters

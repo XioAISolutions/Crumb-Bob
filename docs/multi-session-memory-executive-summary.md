@@ -2,7 +2,7 @@
 
 ## The Transformation
 
-**From**: Single-session pack generator  
+**From**: Single-session pack generator
 **To**: Organizational intelligence platform
 
 **Impact**: Makes CrumbBob indispensable for teams using IBM Bob
@@ -27,7 +27,7 @@ Current CrumbBob generates excellent memory packs from individual Bob sessions, 
 
 A persistent SQLite database that captures, analyzes, and learns from every Bob session:
 
-### 1. **Persistent Memory** 
+### 1. **Persistent Memory**
 Track every session, file, command, risk, and task across time
 - Never lose context between sessions
 - Build institutional knowledge automatically
@@ -115,7 +115,7 @@ crumdbob dashboard --port 8080
 ## Value Proposition
 
 ### For Individual Developers
-- **80% reduction** in context-switching time
+- **Less repetitive** context gathering
 - **Instant access** to historical knowledge
 - **Predictive guidance** before making changes
 - **Automated insights** without manual analysis
@@ -175,10 +175,10 @@ crumdbob dashboard --port 8080
 - 70%+ of generated insights acted upon
 
 ### Value
-- 80% reduction in context-switching time
-- 60% faster onboarding for new developers
-- 40% reduction in recurring issues
-- 90%+ prediction accuracy for file impacts
+- Reduced context-switching time
+- Faster onboarding for new developers
+- Fewer recurring issues
+- Improving prediction accuracy for file impacts
 
 ### Quality
 - 50% faster risk resolution time
@@ -228,14 +228,14 @@ crumdbob dashboard --port 8080
 
 ---
 
-## Investment & ROI
+## Investment & Expected Value
 
 ### Development Investment
 - **16 weeks** of focused development
 - **1-2 engineers** full-time
 - **Estimated cost**: $80K-$120K (depending on team)
 
-### Expected ROI
+### Expected Value
 
 **For a 10-person team using Bob regularly:**
 
@@ -244,14 +244,12 @@ crumdbob dashboard --port 8080
 - 50% faster onboarding (2 weeks → 1 week) = 40 hours per new hire
 - 30% reduction in duplicate analysis = 6 hours/week
 
-**Annual Value**:
-- Time savings: 1,040 hours/year × $100/hour = **$104,000**
-- Faster onboarding: 40 hours × 4 hires/year × $100/hour = **$16,000**
-- Quality improvements: Reduced bugs, faster delivery = **$50,000+**
+**Annual Value Areas**:
+- Time savings from less repeated context gathering
+- Faster onboarding from durable historical knowledge
+- Quality improvements from earlier risk detection and better handoffs
 
-**Total Annual Value**: **$170,000+**
-
-**ROI**: **140%+ in first year**, increasing as database grows
+Actual return should be measured from team usage data after adoption.
 
 ---
 
@@ -313,8 +311,8 @@ The Multi-Session Memory System transforms CrumbBob from a **single-session conv
 
 Teams won't just use it - they'll depend on it. The memory database becomes the single source of truth for how the codebase is understood, how risks evolve, and how knowledge is shared.
 
-**Investment**: 16 weeks, 1-2 engineers  
-**ROI**: 140%+ in first year  
+**Investment**: 16 weeks, 1-2 engineers
+**Value**: measured through team usage and avoided repeated analysis
 **Impact**: Transforms CrumbBob into a must-have tool
 
 **Recommendation**: Proceed with Phase 1 implementation immediately.
@@ -341,7 +339,7 @@ Teams won't just use it - they'll depend on it. The memory database becomes the 
 - ✓ 80%+ adoption within 3 months
 - ✓ 5+ queries per user per week
 - ✓ 90%+ prediction accuracy
-- ✓ 80% reduction in context-switching time
+- ✓ Measurable reduction in context-switching time
 - ✓ Measurable improvement in code quality
 
 ### Contact

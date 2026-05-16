@@ -54,7 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Liveness/readiness split**: `/api/health` (process alive) vs
   `/api/ready` (database reachable). Aligns with K8s probe semantics.
 - **`crumdbob/py.typed`** marker (PEP 561) so downstream type-checkers
-  consume CrumdBob's hints.
+  consume CrumbBob's hints.
 - **`.pre-commit-config.yaml`** running ruff, ruff-format, mypy, bandit,
   and the standard pre-commit-hooks suite on every commit.
 - **`.github/workflows/ci.yml`** with parallel jobs: lint, typecheck,

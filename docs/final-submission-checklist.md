@@ -8,7 +8,7 @@
 - [ ] `crumdbob validate examples/compliance-ai/generated`
 - [ ] `crumdbob graph examples/compliance-ai/generated`
 - [ ] `crumdbob replay examples/compliance-ai/generated`
-- [ ] Open `web/index.html` and generate the demo pack preview.
+- [ ] Run `crumdbob serve --no-browser` and open `http://localhost:8000`.
 
 ## Files To Inspect
 

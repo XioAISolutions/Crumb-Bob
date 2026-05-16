@@ -1,5 +1,5 @@
 
-# CrumdBob v0.3.1 — IBM Bob audit, 2026-05-16
+# CrumbBob v0.3.1 — IBM Bob audit, 2026-05-16
 
 ## Verdict
 
@@ -145,7 +145,7 @@ Full test suite takes ~15-20 seconds. Consider parallelization with pytest-xdist
 
 ## Summary
 
-CrumdBob v0.3.1 represents a **substantial quality improvement** over v0.3.0:
+CrumbBob v0.3.1 represents a **substantial quality improvement** over v0.3.0:
 
 - ✅ Enterprise-grade observability (structured logging, metrics, audit log)
 - ✅ Security hardening (rate limiting, auth gate, XSS elimination, sanitized errors)
