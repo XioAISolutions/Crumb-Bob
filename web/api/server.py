@@ -1,34 +1,75 @@
 """FastAPI server for CrumbBob web dashboard."""
+
 from __future__ import annotations
 
+import logging
 import os
+import secrets
+import sqlite3
+import threading
+import time
+import uuid
 import webbrowser
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
+import uvicorn
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from crumdbob import __version__
-from crumdbob.memory import MemoryDatabase, get_default_db_path
-from crumdbob.query import create_query_engine
+from crumdbob.audit import (
+    EVENT_AUTH_FAILURE,
+    AuditLogger,
+)
 from crumdbob.insights import create_insights_engine
+from crumdbob.llm import create_llm_analyzer, is_llm_available
+from crumdbob.memory import MemoryDatabase, get_default_db_path
 from crumdbob.patterns import create_pattern_detector
 from crumdbob.predict import create_prediction_engine
+from crumdbob.query import create_query_engine
+
+from .metrics import MetricsMiddleware, metrics_response
+from .middleware import (
+    RateLimitMiddleware,
+    RequestIDMiddleware,
+    SecurityHeadersMiddleware,
+)
+
+logger = logging.getLogger(__name__)
+
+
+def _server_error(exc: BaseException) -> HTTPException:
+    """Build a sanitized 500 HTTPException and log the underlying cause.
+
+    We never leak raw exception text to clients — it can contain SQL fragments,
+    file paths, or stack frames. Each error gets a short correlation ID so the
+    server log (which has the full traceback) can be matched back to the
+    user-visible response.
+    """
+    error_id = uuid.uuid4().hex[:8]
+    logger.exception("[%s] API error: %s", error_id, exc)
+    return HTTPException(
+        status_code=500,
+        detail={"error": "Internal server error", "error_id": error_id},
+    )
 
 
 # Request/Response Models
 class QueryRequest(BaseModel):
     """Natural language query request."""
+
     question: str = Field(..., min_length=1, max_length=500)
     limit: int = Field(default=10, ge=1, le=100)
 
 
 class StatsResponse(BaseModel):
     """Dashboard statistics response."""
+
     total_sessions: int
     total_files: int
     total_commands: int
@@ -61,7 +102,17 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     )
 
-    # Enable CORS for local development dashboards without credentialed wildcard access.
+    # Middleware stack — order matters. Starlette processes them in reverse
+    # of registration order, so the LAST registered is the OUTERMOST. We
+    # want this final outer-to-inner order:
+    #
+    #   RequestID  →  SecurityHeaders  →  RateLimit  →  Metrics  →  CORS  →  app
+    #
+    # so that:
+    #   * every log line (including auth/rate-limit denials) has a request ID,
+    #   * every response (including 429s and 401s) carries security headers,
+    #   * metrics see the final status code,
+    #   * CORS still wraps the actual handlers.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[],
@@ -70,16 +121,78 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(MetricsMiddleware)
+    app.add_middleware(
+        RateLimitMiddleware,
+        rate_per_second=float(os.getenv("CRUMDBOB_RATE_LIMIT_PER_SECOND", "10")),
+        burst=int(os.getenv("CRUMDBOB_RATE_LIMIT_BURST", "30")),
+    )
+    app.add_middleware(
+        SecurityHeadersMiddleware,
+        enable_hsts=os.getenv("CRUMDBOB_ENABLE_HSTS", "").lower() in {"1", "true", "yes"},
+    )
+    app.add_middleware(RequestIDMiddleware)
+
+    # Defense-in-depth: catch any unhandled exception, log it server-side, and
+    # return a sanitized response. The per-route handlers below already do this
+    # explicitly; this is the safety net for anything that slips through.
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request, exc):
+        error_id = uuid.uuid4().hex[:8]
+        logger.exception("[%s] Unhandled exception at %s: %s", error_id, request.url.path, exc)
+        return JSONResponse(
+            status_code=500,
+            content={"detail": {"error": "Internal server error", "error_id": error_id}},
+        )
+
+    # Optional API-key auth. If CRUMDBOB_API_KEY is set in the environment,
+    # every /api/* request must include `X-API-Key: <key>`. If unset, the API
+    # behaves as before (open access on localhost). This is opt-in so the
+    # hackathon demo UX is unchanged, but operators deploying beyond
+    # 127.0.0.1 can enable a basic gate without touching the codebase.
+    expected_api_key = os.getenv("CRUMDBOB_API_KEY")
+
+    @app.middleware("http")
+    async def api_key_middleware(request, call_next):
+        if expected_api_key and request.url.path.startswith("/api/"):
+            provided = request.headers.get("x-api-key", "")
+            # secrets.compare_digest defends against timing-attack key recovery.
+            if not provided or not secrets.compare_digest(provided, expected_api_key):
+                # Audit log the failure. Use a closure on `audit` defined
+                # below — bound at call time, not registration time.
+                client_host = request.client.host if request.client else "unknown"
+                try:
+                    audit.record(
+                        EVENT_AUTH_FAILURE,
+                        actor=client_host,
+                        payload={"path": request.url.path, "method": request.method},
+                    )
+                except Exception:  # pragma: no cover — audit must not block
+                    logger.exception("audit.write_failed")
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": {"error": "Missing or invalid X-API-Key header"}},
+                )
+        return await call_next(request)
 
     # Initialize database connection
     if db_path is None:
         db_path = get_default_db_path()
 
     db = MemoryDatabase(db_path)
+    # Apply pending migrations (audit_log table etc.) on startup.
+    db.init_database()
+
     query_engine = create_query_engine(db)
     insights_engine = create_insights_engine(db)
     pattern_detector = create_pattern_detector(db)
     prediction_engine = create_prediction_engine(db)
+
+    # Audit logger shares the same SQLite file as session memory.
+    audit = AuditLogger(
+        db_path,
+        actor_resolver=lambda: "api",
+    )
 
     # Store in app state
     app.state.db = db
@@ -105,13 +218,48 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
         return {"message": "CrumbBob Dashboard API", "docs": "/api/docs"}
 
     @app.get("/api/health")
+    @app.get("/api/v1/health")
     async def health_check():
-        """Health check endpoint."""
+        """Liveness check. Returns 200 if the process is up.
+
+        Use this for load-balancer liveness probes. For readiness (can we
+        serve traffic?), use ``/api/ready`` which also verifies the
+        database is reachable.
+        """
         return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
-            "database": str(db_path),
+            "version": __version__,
         }
+
+    @app.get("/api/ready")
+    @app.get("/api/v1/ready")
+    async def readiness_check():
+        """Readiness check. Returns 200 only if the database is reachable.
+
+        Kubernetes/ECS-style readiness probe target. A 503 here pulls the
+        instance out of the LB rotation until the dependency recovers.
+        """
+        try:
+            db.conn.execute("SELECT 1").fetchone()
+        except sqlite3.Error as exc:
+            logger.warning("readiness.db_unreachable", extra={"error": str(exc)})
+            return JSONResponse(
+                status_code=503,
+                content={"status": "unavailable", "reason": "database_unreachable"},
+            )
+        return {"status": "ready", "version": __version__}
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics():
+        """Prometheus scrape endpoint.
+
+        Exempt from auth and rate limiting (see middleware config) so a
+        Prometheus server can scrape without API keys. Locked down by
+        network policy in production — exposing /metrics publicly leaks
+        traffic patterns.
+        """
+        return metrics_response()
 
     @app.get("/api/stats")
     async def get_stats() -> StatsResponse:
@@ -165,8 +313,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 pending_tasks=pending_tasks,
                 recent_sessions=recent_sessions,
             )
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.get("/api/sessions")
     async def list_sessions(
@@ -206,8 +354,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 "limit": limit,
                 "offset": offset,
             }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.get("/api/sessions/{session_id}")
     async def get_session(session_id: int):
@@ -278,8 +426,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except HTTPException:
             raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.get("/api/insights")
     async def list_insights(
@@ -315,8 +463,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 ],
                 "total": len(insights),
             }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.get("/api/trends")
     async def get_trends(
@@ -327,43 +475,43 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             cursor = db.conn.cursor()
 
             # Sessions over time
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT date(timestamp) as date, COUNT(*) as count
                 FROM sessions
                 WHERE datetime(timestamp) >= datetime('now', ? || ' days')
                 GROUP BY date(timestamp)
                 ORDER BY date
-            """, (f"-{days}",))
-            sessions_trend = [
-                {"date": row[0], "count": row[1]}
-                for row in cursor.fetchall()
-            ]
+            """,
+                (f"-{days}",),
+            )
+            sessions_trend = [{"date": row[0], "count": row[1]} for row in cursor.fetchall()]
 
             # Risks over time
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT date(r.first_seen) as date, COUNT(*) as count
                 FROM risks r
                 WHERE datetime(r.first_seen) >= datetime('now', ? || ' days')
                 GROUP BY date(r.first_seen)
                 ORDER BY date
-            """, (f"-{days}",))
-            risks_trend = [
-                {"date": row[0], "count": row[1]}
-                for row in cursor.fetchall()
-            ]
+            """,
+                (f"-{days}",),
+            )
+            risks_trend = [{"date": row[0], "count": row[1]} for row in cursor.fetchall()]
 
             # Files over time
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT date(f.first_seen) as date, COUNT(DISTINCT f.path) as count
                 FROM files f
                 WHERE datetime(f.first_seen) >= datetime('now', ? || ' days')
                 GROUP BY date(f.first_seen)
                 ORDER BY date
-            """, (f"-{days}",))
-            files_trend = [
-                {"date": row[0], "count": row[1]}
-                for row in cursor.fetchall()
-            ]
+            """,
+                (f"-{days}",),
+            )
+            files_trend = [{"date": row[0], "count": row[1]} for row in cursor.fetchall()]
 
             return {
                 "sessions": sessions_trend,
@@ -371,8 +519,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 "files": files_trend,
                 "days": days,
             }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.get("/api/patterns")
     async def get_patterns():
@@ -397,8 +545,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 ],
                 "total": len(patterns),
             }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.get("/api/risks")
     async def list_risks(
@@ -415,7 +563,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 FROM risks r
                 JOIN sessions s ON r.session_id = s.id
             """
-            params = []
+            params: list[Any] = []
 
             if status:
                 query += " WHERE r.status = ?"
@@ -446,7 +594,7 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             predictions = []
             try:
                 pred = prediction_engine.predict_risks("")
-                predictions = pred.predictions if hasattr(pred, 'predictions') else []
+                predictions = pred.predictions if hasattr(pred, "predictions") else []
             except (ValueError, RuntimeError, AttributeError):
                 # If prediction fails, return empty list.
                 predictions = []
@@ -456,8 +604,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 "predictions": predictions,
                 "total": len(risks),
             }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.post("/api/query")
     async def execute_query(request: QueryRequest):
@@ -471,15 +619,13 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 "row_count": result.row_count,
                 "explanation": result.explanation,
             }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.get("/api/llm/status")
     async def llm_status():
         """Get LLM configuration and status."""
         try:
-            from crumdbob.llm import is_llm_available
-
             config = db.get_llm_config()
             available = is_llm_available()
             cache_stats = db.get_llm_cache_stats()
@@ -490,21 +636,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                 "config": config,
                 "cache_stats": cache_stats,
             }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.post("/api/llm/analyze/{session_id}")
     async def llm_analyze_session(session_id: int):
         """Analyze a session with LLM."""
         try:
-            from crumdbob.llm import create_llm_analyzer
-
             analyzer = create_llm_analyzer(db)
             if not analyzer:
-                raise HTTPException(
-                    status_code=503,
-                    detail="LLM not configured or unavailable"
-                )
+                raise HTTPException(status_code=503, detail="LLM not configured or unavailable")
 
             # Get session data
             session = db.get_session(session_id)
@@ -542,21 +683,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except HTTPException:
             raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.post("/api/llm/explain")
     async def llm_explain_pattern(pattern_data: dict):
         """Get LLM explanation of a pattern."""
         try:
-            from crumdbob.llm import create_llm_analyzer
-
             analyzer = create_llm_analyzer(db)
             if not analyzer:
-                raise HTTPException(
-                    status_code=503,
-                    detail="LLM not configured or unavailable"
-                )
+                raise HTTPException(status_code=503, detail="LLM not configured or unavailable")
 
             response = analyzer.explain_pattern(pattern_data)
 
@@ -570,21 +706,16 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except HTTPException:
             raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     @app.post("/api/llm/recommend/{session_id}")
     async def llm_recommend_actions(session_id: int):
         """Get LLM recommendations for a session."""
         try:
-            from crumdbob.llm import create_llm_analyzer
-
             analyzer = create_llm_analyzer(db)
             if not analyzer:
-                raise HTTPException(
-                    status_code=503,
-                    detail="LLM not configured or unavailable"
-                )
+                raise HTTPException(status_code=503, detail="LLM not configured or unavailable")
 
             # Get session data
             session = db.get_session(session_id)
@@ -614,8 +745,8 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
             }
         except HTTPException:
             raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception as exc:
+            raise _server_error(exc) from exc
 
     return app
 
@@ -634,14 +765,10 @@ def run_server(
         db_path: Path to database file
         open_browser: Whether to open browser automatically
     """
-    import uvicorn
-
     app = create_app(db_path)
 
     # Open browser after a short delay
     if open_browser:
-        import threading
-        import time
 
         def open_browser_delayed():
             time.sleep(1.5)
@@ -655,5 +782,6 @@ def run_server(
     print("\nPress Ctrl+C to stop the server")
 
     uvicorn.run(app, host=host, port=port, log_level="info")
+
 
 # Made with Bob

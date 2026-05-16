@@ -1,15 +1,29 @@
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
-from typing import Iterable
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.+?)\s*$")
 BULLET_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.+?)\s*$")
-FILE_RE = re.compile(r"(?:^|[\s`'\"])([A-Za-z0-9_.@-]+(?:/[A-Za-z0-9_.@-]+)+(?:\.(?:ts|tsx|js|jsx|py|md|json|toml|yaml|yml|mjs|cjs|sql|css|html|sh|env|txt))?)(?:$|[\s`'\".,:;)])")
-COMMAND_RE = re.compile(r"\b(?:pnpm|npm|yarn|python|pytest|vitest|turbo|node|uvicorn|docker|git|pip)\s+[^\n`]+")
-RISK_WORDS = ("risk", "fragile", "unclear", "missing", "manual", "todo", "gap", "blocker", "assumption")
+FILE_RE = re.compile(
+    r"(?:^|[\s`'\"])([A-Za-z0-9_.@-]+(?:/[A-Za-z0-9_.@-]+)+(?:\.(?:ts|tsx|js|jsx|py|md|json|toml|yaml|yml|mjs|cjs|sql|css|html|sh|env|txt))?)(?:$|[\s`'\".,:;)])"
+)
+COMMAND_RE = re.compile(
+    r"\b(?:pnpm|npm|yarn|python|pytest|vitest|turbo|node|uvicorn|docker|git|pip)\s+[^\n`]+"
+)
+RISK_WORDS = (
+    "risk",
+    "fragile",
+    "unclear",
+    "missing",
+    "manual",
+    "todo",
+    "gap",
+    "blocker",
+    "assumption",
+)
 TEST_WORDS = ("test", "smoke", "typecheck", "lint", "build", "pytest", "vitest", "coverage")
 NEXT_WORDS = ("next", "recommend", "todo", "implement", "improve", "fix", "add", "create", "ship")
 
@@ -19,6 +33,7 @@ _NEXT_RE = re.compile(r"\b(?:" + "|".join(NEXT_WORDS) + r")\b", re.IGNORECASE)
 
 # Cap per-category extraction so CRUMB files stay concise and scannable.
 MAX_SIGNALS = 12
+
 
 @dataclass(frozen=True)
 class SourceArtifact:
@@ -42,8 +57,10 @@ class BobReport:
     source_artifacts: list[SourceArtifact] = field(default_factory=list)
     raw_text: str = ""
 
+
 def _clean(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip()).strip("` ")
+
 
 def _dedupe(items: Iterable[str]) -> list[str]:
     seen: set[str] = set()
@@ -59,6 +76,7 @@ def _dedupe(items: Iterable[str]) -> list[str]:
         out.append(cleaned)
     return out
 
+
 def _first_paragraph(lines: list[str]) -> str:
     chunk: list[str] = []
     for line in lines:
@@ -71,6 +89,7 @@ def _first_paragraph(lines: list[str]) -> str:
             continue
         chunk.append(stripped)
     return _clean(" ".join(chunk))
+
 
 def extract_signals(text: str) -> dict[str, list[str]]:
     bullets: list[str] = []
@@ -98,20 +117,26 @@ def extract_signals(text: str) -> dict[str, list[str]]:
         "next_steps": _dedupe(line for line in base_lines if _NEXT_RE.search(line)),
     }
 
-def enrich_report_with_artifact(report: BobReport, path: str | Path, kind: str | None = None) -> None:
+
+def enrich_report_with_artifact(
+    report: BobReport, path: str | Path, kind: str | None = None
+) -> None:
     """Mutate *report* in place with signals extracted from an additional artifact."""
     source = Path(path)
     text = source.read_text(encoding="utf-8")
     artifact = SourceArtifact(path=str(source), kind=kind or source.name, text=text)
     signals = extract_signals(text)
     report.source_artifacts.append(artifact)
-    report.raw_text = f"{report.raw_text}\n\n--- {artifact.kind}: {artifact.path} ---\n{text}".strip()
+    report.raw_text = (
+        f"{report.raw_text}\n\n--- {artifact.kind}: {artifact.path} ---\n{text}".strip()
+    )
     report.bullets = _dedupe([*report.bullets, *signals["bullets"]])
     report.files = _dedupe([*report.files, *signals["files"]])
     report.commands = _dedupe([*report.commands, *signals["commands"]])
     report.risks = _dedupe([*report.risks, *signals["risks"]])[:MAX_SIGNALS]
     report.tests = _dedupe([*report.tests, *signals["tests"]])[:MAX_SIGNALS]
     report.next_steps = _dedupe([*report.next_steps, *signals["next_steps"]])[:MAX_SIGNALS]
+
 
 def parse_bob_report(path: str | Path) -> BobReport:
     source = Path(path)
@@ -138,12 +163,17 @@ def parse_bob_report(path: str | Path) -> BobReport:
             report.files.append(match.group(1))
         for match in COMMAND_RE.finditer(line):
             report.commands.append(match.group(0).strip())
-    report.summary = _first_paragraph(lines) or "IBM Bob analyzed the repository and produced a reusable development report."
+    report.summary = (
+        _first_paragraph(lines)
+        or "IBM Bob analyzed the repository and produced a reusable development report."
+    )
     report.bullets = _dedupe(report.bullets)
     report.files = _dedupe(report.files)
     report.commands = _dedupe(report.commands)
     signal_lines = report.bullets or [_clean(line) for line in lines if _clean(line)]
     report.risks = _dedupe(line for line in signal_lines if _RISK_RE.search(line))[:MAX_SIGNALS]
     report.tests = _dedupe(line for line in signal_lines if _TEST_RE.search(line))[:MAX_SIGNALS]
-    report.next_steps = _dedupe(line for line in signal_lines if _NEXT_RE.search(line))[:MAX_SIGNALS]
+    report.next_steps = _dedupe(line for line in signal_lines if _NEXT_RE.search(line))[
+        :MAX_SIGNALS
+    ]
     return report

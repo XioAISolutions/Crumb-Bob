@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-import pytest
 from textwrap import dedent
+
+import pytest
 
 from crumdbob.differ import (
     compare_crumb_files,
@@ -13,9 +14,6 @@ from crumdbob.differ import (
     format_json,
     format_summary,
     parse_crumb_file,
-    CrumbDiff,
-    PackDiff,
-    ProofChainDiff,
 )
 
 
@@ -24,9 +22,10 @@ def temp_pack_dir(tmp_path: Path) -> Path:
     """Create a temporary pack directory with sample files."""
     pack_dir = tmp_path / "pack1"
     pack_dir.mkdir()
-    
+
     # Create a sample CRUMB file
-    crumb_content = dedent("""
+    crumb_content = (
+        dedent("""
         BEGIN CRUMB
         v=1.4
         kind=map
@@ -37,20 +36,22 @@ def temp_pack_dir(tmp_path: Path) -> Path:
         ---
         [project]
         This is a test project.
-        
+
         [modules]
         - src/app.ts
         - src/utils.ts
-        
+
         [commands]
         - npm test
         - npm build
-        
+
         END CRUMB
-    """).strip() + "\n"
-    
+    """).strip()
+        + "\n"
+    )
+
     (pack_dir / "00_repo_genome.crumb").write_text(crumb_content, encoding="utf-8")
-    
+
     # Create a sample proof chain
     proof_chain = {
         "schema": "crumdbob.proof-chain.v1",
@@ -78,16 +79,16 @@ def temp_pack_dir(tmp_path: Path) -> Path:
         },
         "notes": ["Test note"],
     }
-    
+
     (pack_dir / "08_proof_chain.json").write_text(
         json.dumps(proof_chain, indent=2), encoding="utf-8"
     )
-    
+
     # Create a sample markdown file
     (pack_dir / "06_replay_prompt.md").write_text(
         "# Replay Prompt\n\nTest content\n", encoding="utf-8"
     )
-    
+
     return pack_dir
 
 
@@ -95,7 +96,7 @@ def test_parse_crumb_file(temp_pack_dir: Path):
     """Test parsing a CRUMB file."""
     crumb_path = temp_pack_dir / "00_repo_genome.crumb"
     crumb = parse_crumb_file(crumb_path)
-    
+
     assert crumb is not None
     assert crumb.kind == "map"
     assert crumb.title == "Test Repo Genome"
@@ -115,15 +116,15 @@ def test_parse_crumb_file_missing(tmp_path: Path):
 def test_compare_crumb_files_identical(temp_pack_dir: Path, tmp_path: Path):
     """Test comparing identical CRUMB files."""
     crumb_path = temp_pack_dir / "00_repo_genome.crumb"
-    
+
     # Copy to another location
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
     crumb_path2 = pack2 / "00_repo_genome.crumb"
     crumb_path2.write_text(crumb_path.read_text(), encoding="utf-8")
-    
+
     diff = compare_crumb_files(crumb_path, crumb_path2)
-    
+
     assert diff.status == "unchanged"
     assert not diff.header_changes
     assert not diff.section_changes
@@ -135,13 +136,14 @@ def test_compare_crumb_files_identical(temp_pack_dir: Path, tmp_path: Path):
 def test_compare_crumb_files_modified(temp_pack_dir: Path, tmp_path: Path):
     """Test comparing modified CRUMB files."""
     crumb_path = temp_pack_dir / "00_repo_genome.crumb"
-    
+
     # Create modified version
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
     crumb_path2 = pack2 / "00_repo_genome.crumb"
-    
-    modified_content = dedent("""
+
+    modified_content = (
+        dedent("""
         BEGIN CRUMB
         v=1.4
         kind=map
@@ -152,26 +154,28 @@ def test_compare_crumb_files_modified(temp_pack_dir: Path, tmp_path: Path):
         ---
         [project]
         This is a modified test project.
-        
+
         [modules]
         - src/app.ts
         - src/utils.ts
         - src/new.ts
-        
+
         [commands]
         - npm test
         - npm build
-        
+
         [new_section]
         This is a new section.
-        
+
         END CRUMB
-    """).strip() + "\n"
-    
+    """).strip()
+        + "\n"
+    )
+
     crumb_path2.write_text(modified_content, encoding="utf-8")
-    
+
     diff = compare_crumb_files(crumb_path, crumb_path2)
-    
+
     assert diff.status == "modified"
     assert "title" in diff.header_changes
     assert "id" in diff.header_changes
@@ -185,14 +189,15 @@ def test_compare_crumb_files_added(tmp_path: Path):
     """Test comparing when second file is added."""
     pack1 = tmp_path / "pack1"
     pack1.mkdir()
-    
+
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     crumb_path1 = pack1 / "test.crumb"
     crumb_path2 = pack2 / "test.crumb"
-    
-    crumb_content = dedent("""
+
+    crumb_content = (
+        dedent("""
         BEGIN CRUMB
         v=1.4
         kind=map
@@ -201,12 +206,14 @@ def test_compare_crumb_files_added(tmp_path: Path):
         ---
         [section]
         Content
-        
+
         END CRUMB
-    """).strip() + "\n"
-    
+    """).strip()
+        + "\n"
+    )
+
     crumb_path2.write_text(crumb_content, encoding="utf-8")
-    
+
     diff = compare_crumb_files(crumb_path1, crumb_path2)
     assert diff.status == "added"
 
@@ -215,14 +222,15 @@ def test_compare_crumb_files_removed(tmp_path: Path):
     """Test comparing when first file is removed."""
     pack1 = tmp_path / "pack1"
     pack1.mkdir()
-    
+
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     crumb_path1 = pack1 / "test.crumb"
     crumb_path2 = pack2 / "test.crumb"
-    
-    crumb_content = dedent("""
+
+    crumb_content = (
+        dedent("""
         BEGIN CRUMB
         v=1.4
         kind=map
@@ -231,12 +239,14 @@ def test_compare_crumb_files_removed(tmp_path: Path):
         ---
         [section]
         Content
-        
+
         END CRUMB
-    """).strip() + "\n"
-    
+    """).strip()
+        + "\n"
+    )
+
     crumb_path1.write_text(crumb_content, encoding="utf-8")
-    
+
     diff = compare_crumb_files(crumb_path1, crumb_path2)
     assert diff.status == "removed"
 
@@ -244,14 +254,14 @@ def test_compare_crumb_files_removed(tmp_path: Path):
 def test_compare_proof_chains_identical(temp_pack_dir: Path, tmp_path: Path):
     """Test comparing identical proof chains."""
     proof_path1 = temp_pack_dir / "08_proof_chain.json"
-    
+
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
     proof_path2 = pack2 / "08_proof_chain.json"
     proof_path2.write_text(proof_path1.read_text(), encoding="utf-8")
-    
+
     diff = compare_proof_chains(proof_path1, proof_path2)
-    
+
     assert diff.status == "unchanged"
     assert not diff.source_hash_changed
     assert not diff.count_changes
@@ -261,22 +271,22 @@ def test_compare_proof_chains_identical(temp_pack_dir: Path, tmp_path: Path):
 def test_compare_proof_chains_modified(temp_pack_dir: Path, tmp_path: Path):
     """Test comparing modified proof chains."""
     proof_path1 = temp_pack_dir / "08_proof_chain.json"
-    
+
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
     proof_path2 = pack2 / "08_proof_chain.json"
-    
+
     # Modify proof chain
     proof = json.loads(proof_path1.read_text())
     proof["source_report"]["sha256"] = "xyz789"
     proof["extracted_counts"]["files"] = 5
     proof["extracted_counts"]["commands"] = 3
     proof["generated_files"][0]["sha256"] = "newHash"
-    
+
     proof_path2.write_text(json.dumps(proof, indent=2), encoding="utf-8")
-    
+
     diff = compare_proof_chains(proof_path1, proof_path2)
-    
+
     assert diff.status == "modified"
     assert diff.source_hash_changed
     assert diff.old_source_hash == "abc123"
@@ -293,13 +303,13 @@ def test_compare_packs_identical(temp_pack_dir: Path, tmp_path: Path):
     # Create identical pack2
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     for file in temp_pack_dir.iterdir():
         if file.is_file():
             (pack2 / file.name).write_text(file.read_text(), encoding="utf-8")
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
-    
+
     assert diff.identical
     assert not diff.added_files
     assert not diff.removed_files
@@ -311,35 +321,35 @@ def test_compare_packs_with_changes(temp_pack_dir: Path, tmp_path: Path):
     # Create modified pack2
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     # Copy and modify CRUMB file
     crumb_content = (temp_pack_dir / "00_repo_genome.crumb").read_text()
     modified_crumb = crumb_content.replace("Test Repo Genome", "Modified Genome")
     (pack2 / "00_repo_genome.crumb").write_text(modified_crumb, encoding="utf-8")
-    
+
     # Copy proof chain with modifications
     proof = json.loads((temp_pack_dir / "08_proof_chain.json").read_text())
     proof["extracted_counts"]["files"] = 10
     (pack2 / "08_proof_chain.json").write_text(json.dumps(proof, indent=2), encoding="utf-8")
-    
+
     # Copy markdown file unchanged
     (pack2 / "06_replay_prompt.md").write_text(
         (temp_pack_dir / "06_replay_prompt.md").read_text(), encoding="utf-8"
     )
-    
+
     # Add a new file
     (pack2 / "new_file.txt").write_text("New content", encoding="utf-8")
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
-    
+
     assert not diff.identical
     assert "new_file.txt" in diff.added_files
     assert len(diff.crumb_diffs) > 0
-    
+
     # Find the modified CRUMB
     crumb_diff = next(d for d in diff.crumb_diffs if d.path == "00_repo_genome.crumb")
     assert crumb_diff.status == "modified"
-    
+
     # Check proof chain changes
     assert diff.proof_chain_diff is not None
     assert diff.proof_chain_diff.status == "modified"
@@ -351,7 +361,7 @@ def test_compare_packs_missing_directory(tmp_path: Path):
     pack1 = tmp_path / "pack1"
     pack1.mkdir()
     pack2 = tmp_path / "pack2"
-    
+
     with pytest.raises(FileNotFoundError):
         compare_packs(pack1, pack2)
 
@@ -360,14 +370,14 @@ def test_format_summary_identical(temp_pack_dir: Path, tmp_path: Path):
     """Test formatting summary for identical packs."""
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     for file in temp_pack_dir.iterdir():
         if file.is_file():
             (pack2 / file.name).write_text(file.read_text(), encoding="utf-8")
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
     output = format_summary(diff, use_color=False)
-    
+
     assert "identical" in output.lower()
     assert str(temp_pack_dir) in output
     assert str(pack2) in output
@@ -377,23 +387,23 @@ def test_format_summary_with_changes(temp_pack_dir: Path, tmp_path: Path):
     """Test formatting summary with changes."""
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     # Copy with modifications
     crumb_content = (temp_pack_dir / "00_repo_genome.crumb").read_text()
     modified_crumb = crumb_content.replace("Test Repo Genome", "Modified Genome")
     (pack2 / "00_repo_genome.crumb").write_text(modified_crumb, encoding="utf-8")
-    
+
     # Add proof chain with changes
     proof = json.loads((temp_pack_dir / "08_proof_chain.json").read_text())
     proof["extracted_counts"]["files"] = 10
     (pack2 / "08_proof_chain.json").write_text(json.dumps(proof, indent=2), encoding="utf-8")
-    
+
     # Add new file
     (pack2 / "new_file.txt").write_text("New", encoding="utf-8")
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
     output = format_summary(diff, use_color=False)
-    
+
     assert "differ" in output.lower()
     assert "1 file(s) added" in output
     assert "modified" in output.lower()
@@ -403,18 +413,18 @@ def test_format_detailed(temp_pack_dir: Path, tmp_path: Path):
     """Test detailed format output."""
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     # Create changes
     crumb_content = (temp_pack_dir / "00_repo_genome.crumb").read_text()
     modified_crumb = crumb_content.replace("This is a test project.", "This is a modified project.")
     (pack2 / "00_repo_genome.crumb").write_text(modified_crumb, encoding="utf-8")
-    
+
     proof = json.loads((temp_pack_dir / "08_proof_chain.json").read_text())
     (pack2 / "08_proof_chain.json").write_text(json.dumps(proof, indent=2), encoding="utf-8")
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
     output = format_detailed(diff, use_color=False)
-    
+
     assert "Detailed" in output
     assert "00_repo_genome.crumb" in output
     assert "Modified CRUMB Files" in output or "modified" in output.lower()
@@ -424,17 +434,17 @@ def test_format_json(temp_pack_dir: Path, tmp_path: Path):
     """Test JSON format output."""
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     for file in temp_pack_dir.iterdir():
         if file.is_file():
             (pack2 / file.name).write_text(file.read_text(), encoding="utf-8")
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
     output = format_json(diff)
-    
+
     # Parse JSON to verify it's valid
     data = json.loads(output)
-    
+
     assert "pack1" in data
     assert "pack2" in data
     assert "identical" in data
@@ -448,22 +458,22 @@ def test_format_json_with_changes(temp_pack_dir: Path, tmp_path: Path):
     """Test JSON format with changes."""
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     # Add changes
     (pack2 / "new_file.txt").write_text("New", encoding="utf-8")
-    
+
     crumb_content = (temp_pack_dir / "00_repo_genome.crumb").read_text()
     (pack2 / "00_repo_genome.crumb").write_text(crumb_content, encoding="utf-8")
-    
+
     proof = json.loads((temp_pack_dir / "08_proof_chain.json").read_text())
     proof["extracted_counts"]["files"] = 10
     (pack2 / "08_proof_chain.json").write_text(json.dumps(proof, indent=2), encoding="utf-8")
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
     output = format_json(diff)
-    
+
     data = json.loads(output)
-    
+
     assert data["identical"] is False
     assert data["summary"]["added_files"] == 1
     assert "new_file.txt" in data["added_files"]
@@ -476,7 +486,7 @@ def test_compare_packs_with_removed_files(temp_pack_dir: Path, tmp_path: Path):
     """Test comparing packs when files are removed."""
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     # Copy only some files (remove replay prompt)
     (pack2 / "00_repo_genome.crumb").write_text(
         (temp_pack_dir / "00_repo_genome.crumb").read_text(), encoding="utf-8"
@@ -484,9 +494,9 @@ def test_compare_packs_with_removed_files(temp_pack_dir: Path, tmp_path: Path):
     (pack2 / "08_proof_chain.json").write_text(
         (temp_pack_dir / "08_proof_chain.json").read_text(), encoding="utf-8"
     )
-    
+
     diff = compare_packs(temp_pack_dir, pack2)
-    
+
     assert not diff.identical
     assert "06_replay_prompt.md" in diff.removed_files
 
@@ -497,7 +507,7 @@ def test_proof_chain_with_added_removed_files(tmp_path: Path):
     pack1.mkdir()
     pack2 = tmp_path / "pack2"
     pack2.mkdir()
-    
+
     proof1 = {
         "schema": "crumdbob.proof-chain.v1",
         "source_report": {"sha256": "abc", "bytes": 100, "path": "report.md"},
@@ -507,7 +517,7 @@ def test_proof_chain_with_added_removed_files(tmp_path: Path):
         ],
         "extracted_counts": {"files": 1},
     }
-    
+
     proof2 = {
         "schema": "crumdbob.proof-chain.v1",
         "source_report": {"sha256": "abc", "bytes": 100, "path": "report.md"},
@@ -517,16 +527,17 @@ def test_proof_chain_with_added_removed_files(tmp_path: Path):
         ],
         "extracted_counts": {"files": 1},
     }
-    
+
     (pack1 / "08_proof_chain.json").write_text(json.dumps(proof1), encoding="utf-8")
     (pack2 / "08_proof_chain.json").write_text(json.dumps(proof2), encoding="utf-8")
-    
+
     diff = compare_proof_chains(pack1 / "08_proof_chain.json", pack2 / "08_proof_chain.json")
-    
+
     assert diff.status == "modified"
     assert "file1.crumb" in diff.removed_files
     assert "file3.crumb" in diff.added_files
     assert "file2.crumb" not in diff.added_files
     assert "file2.crumb" not in diff.removed_files
+
 
 # Made with Bob

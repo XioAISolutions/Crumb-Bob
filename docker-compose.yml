@@ -1,0 +1,63 @@
+# Local-dev orchestration for CrumbBob.
+#
+# Usage:
+#   docker compose up           # start dashboard on http://localhost:8000
+#   docker compose up -d        # detached
+#   docker compose logs -f      # follow logs
+#   docker compose down -v      # stop and DELETE persistent data
+#
+# The data volume persists session memory across container restarts. To
+# enable auth, set CRUMDBOB_API_KEY in a .env file (gitignored) and call
+# the API with `X-API-Key: <value>`.
+
+services:
+  crumdbob:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/xioaisolutions/crumdbob:local
+    container_name: crumdbob
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      CRUMDBOB_LOG_FORMAT: json
+      CRUMDBOB_DATA_DIR: /data
+      # Opt-in auth — uncomment and set in .env to require X-API-Key.
+      # CRUMDBOB_API_KEY: ${CRUMDBOB_API_KEY:-}
+      # Rate-limit tuning — defaults are conservative for local use.
+      CRUMDBOB_RATE_LIMIT_PER_SECOND: "10"
+      CRUMDBOB_RATE_LIMIT_BURST: "30"
+      # CORS regex must match every origin you want to allow.
+      CRUMDBOB_CORS_ORIGIN_REGEX: '^https?://(localhost|127\.0\.0\.1)(:\d+)?$'
+    volumes:
+      - crumdbob-data:/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=3).status==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # Drop every Linux capability — the Python process needs none of them.
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    # Read-only root FS forces all writes to land in /data (the volume).
+    read_only: true
+    tmpfs:
+      - /tmp:size=64M,mode=1777
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  crumdbob-data:
+    driver: local

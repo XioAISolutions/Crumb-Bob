@@ -3,6 +3,7 @@
 Provides AI-powered insights, risk categorization, pattern explanations,
 and smart recommendations using multiple LLM providers.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -16,18 +17,21 @@ from typing import Any, Literal
 
 try:
     import openai
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OPENAI_AVAILABLE = False
 
 try:
     import anthropic
+
     ANTHROPIC_AVAILABLE = True
 except ImportError:
     ANTHROPIC_AVAILABLE = False
 
 try:
     import tiktoken
+
     TIKTOKEN_AVAILABLE = True
 except ImportError:
     TIKTOKEN_AVAILABLE = False
@@ -40,6 +44,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class LLMConfig:
     """Configuration for LLM provider."""
+
     provider: LLMProvider
     model: str
     api_key: str | None
@@ -52,6 +57,7 @@ class LLMConfig:
 @dataclass
 class LLMResponse:
     """Response from LLM analysis."""
+
     content: str
     provider: str
     model: str
@@ -72,7 +78,7 @@ class LLMAnalyzer:
         """
         self.config = config
         self.db = db
-        self.client = None
+        self.client: Any = None
 
         # Initialize provider client
         if config.provider == "openai":
@@ -84,7 +90,9 @@ class LLMAnalyzer:
 
         elif config.provider == "anthropic":
             if not ANTHROPIC_AVAILABLE:
-                raise ImportError("anthropic package not installed. Install with: pip install anthropic")
+                raise ImportError(
+                    "anthropic package not installed. Install with: pip install anthropic"
+                )
             if not config.api_key:
                 raise ValueError("Anthropic API key not provided")
             self.client = anthropic.Anthropic(api_key=config.api_key, timeout=config.timeout)
@@ -107,17 +115,17 @@ class LLMAnalyzer:
         """
         prompt = f"""Analyze this development session and provide insights:
 
-Session: {session_data.get('session_name', 'Unnamed')}
-Branch: {session_data.get('git_branch', 'N/A')}
-Author: {session_data.get('git_author', 'N/A')}
-Files modified: {session_data.get('file_count', 0)}
-Commands executed: {session_data.get('command_count', 0)}
-Risks detected: {session_data.get('risk_count', 0)}
-Tasks identified: {session_data.get('task_count', 0)}
+Session: {session_data.get("session_name", "Unnamed")}
+Branch: {session_data.get("git_branch", "N/A")}
+Author: {session_data.get("git_author", "N/A")}
+Files modified: {session_data.get("file_count", 0)}
+Commands executed: {session_data.get("command_count", 0)}
+Risks detected: {session_data.get("risk_count", 0)}
+Tasks identified: {session_data.get("task_count", 0)}
 
-Files: {json.dumps(session_data.get('files', [])[:10], indent=2)}
-Commands: {json.dumps(session_data.get('commands', [])[:10], indent=2)}
-Risks: {json.dumps(session_data.get('risks', [])[:5], indent=2)}
+Files: {json.dumps(session_data.get("files", [])[:10], indent=2)}
+Commands: {json.dumps(session_data.get("commands", [])[:10], indent=2)}
+Risks: {json.dumps(session_data.get("risks", [])[:5], indent=2)}
 
 Provide a comprehensive analysis including:
 1. Summary of what was accomplished
@@ -130,7 +138,11 @@ Keep it concise but actionable (3-4 paragraphs)."""
 
         return self._call_llm(prompt)
 
-    def categorize_risk(self, risk_description: str, context: dict[str, Any] | None = None) -> LLMResponse:
+    def categorize_risk(
+        self,
+        risk_description: str,
+        context: dict[str, Any] | None = None,
+    ) -> LLMResponse:
         """Categorize and assess a risk intelligently.
 
         Args:
@@ -170,13 +182,13 @@ Format as JSON with keys: category, severity, impact, mitigation, urgency"""
         """
         prompt = f"""Explain this code pattern in natural language:
 
-Pattern Type: {pattern_data.get('pattern_type')}
-Description: {pattern_data.get('description')}
-Frequency: {pattern_data.get('frequency')}
-Severity: {pattern_data.get('severity', 'N/A')}
+Pattern Type: {pattern_data.get("pattern_type")}
+Description: {pattern_data.get("description")}
+Frequency: {pattern_data.get("frequency")}
+Severity: {pattern_data.get("severity", "N/A")}
 
 Evidence:
-{json.dumps(pattern_data.get('evidence', []), indent=2)}
+{json.dumps(pattern_data.get("evidence", []), indent=2)}
 
 Provide:
 1. What this pattern represents
@@ -222,10 +234,10 @@ Focus on insights that would help improve development practices."""
         """
         prompt = f"""Based on this development session, recommend specific actions:
 
-Session: {session_data.get('session_name', 'Unnamed')}
-Risks: {json.dumps(session_data.get('risks', []), indent=2)}
-Tasks: {json.dumps(session_data.get('tasks', []), indent=2)}
-Files: {json.dumps(session_data.get('files', [])[:10], indent=2)}
+Session: {session_data.get("session_name", "Unnamed")}
+Risks: {json.dumps(session_data.get("risks", []), indent=2)}
+Tasks: {json.dumps(session_data.get("tasks", []), indent=2)}
+Files: {json.dumps(session_data.get("files", [])[:10], indent=2)}
 
 Provide:
 1. Immediate actions (do now)
@@ -285,9 +297,9 @@ Keep it concise and focused on actionable insights."""
                     model=self.config.model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens
+                    max_tokens=self.config.max_tokens,
                 )
-                content = response.choices[0].message.content
+                content = response.choices[0].message.content or ""
                 tokens_used = response.usage.total_tokens if response.usage else None
 
             elif self.config.provider == "anthropic":
@@ -295,10 +307,13 @@ Keep it concise and focused on actionable insights."""
                     model=self.config.model,
                     messages=[{"role": "user", "content": prompt}],
                     temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens
+                    max_tokens=self.config.max_tokens,
                 )
-                content = response.content[0].text
-                tokens_used = response.usage.input_tokens + response.usage.output_tokens if hasattr(response, 'usage') else None
+                content = getattr(response.content[0], "text", "")
+                if hasattr(response, "usage"):
+                    tokens_used = response.usage.input_tokens + response.usage.output_tokens
+                else:
+                    tokens_used = None
 
             else:
                 raise NotImplementedError(f"Provider {self.config.provider} not implemented")
@@ -309,7 +324,7 @@ Keep it concise and focused on actionable insights."""
                 model=self.config.model,
                 tokens_used=tokens_used,
                 cached=False,
-                timestamp=timestamp
+                timestamp=timestamp,
             )
 
             # Cache response
@@ -321,12 +336,12 @@ Keep it concise and focused on actionable insights."""
         except Exception as e:
             # Return error response with fallback
             return LLMResponse(
-                content=f"Error calling LLM: {str(e)}",
+                content=f"Error calling LLM: {e!s}",
                 provider=self.config.provider,
                 model=self.config.model,
                 tokens_used=None,
                 cached=False,
-                timestamp=timestamp
+                timestamp=timestamp,
             )
 
     def _get_cached_response(self, prompt: str) -> LLMResponse | None:
@@ -345,11 +360,14 @@ Keep it concise and focused on actionable insights."""
 
         try:
             cursor = self.db.conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT response, provider, model, tokens_used, created_at
                 FROM llm_cache
                 WHERE prompt_hash = ?
-            """, (prompt_hash,))
+            """,
+                (prompt_hash,),
+            )
 
             row = cursor.fetchone()
             if row:
@@ -359,7 +377,7 @@ Keep it concise and focused on actionable insights."""
                     model=row["model"],
                     tokens_used=row["tokens_used"],
                     cached=True,
-                    timestamp=row["created_at"]
+                    timestamp=row["created_at"],
                 )
         except sqlite3.Error as exc:
             logger.debug("Failed to read LLM cache", exc_info=exc)
@@ -380,19 +398,22 @@ Keep it concise and focused on actionable insights."""
 
         try:
             cursor = self.db.conn.cursor()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO llm_cache
                 (prompt_hash, prompt, response, provider, model, tokens_used, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (
-                prompt_hash,
-                prompt,
-                response.content,
-                response.provider,
-                response.model,
-                response.tokens_used,
-                response.timestamp
-            ))
+            """,
+                (
+                    prompt_hash,
+                    prompt,
+                    response.content,
+                    response.provider,
+                    response.model,
+                    response.tokens_used,
+                    response.timestamp,
+                ),
+            )
             self.db.conn.commit()
         except sqlite3.Error as exc:
             logger.debug("Failed to write LLM cache", exc_info=exc)
@@ -457,7 +478,7 @@ def get_llm_config(db=None) -> LLMConfig | None:
                     model=row["model"],
                     api_key=api_key,
                     temperature=row["temperature"],
-                    max_tokens=row["max_tokens"]
+                    max_tokens=row["max_tokens"],
                 )
         except sqlite3.Error as exc:
             logger.debug("Failed to read LLM config", exc_info=exc)
@@ -469,7 +490,7 @@ def get_llm_config(db=None) -> LLMConfig | None:
             model=os.getenv("OPENAI_MODEL", "gpt-4"),
             api_key=os.getenv("OPENAI_API_KEY"),
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
-            max_tokens=int(os.getenv("LLM_MAX_TOKENS", "2000"))
+            max_tokens=int(os.getenv("LLM_MAX_TOKENS", "2000")),
         )
 
     if os.getenv("ANTHROPIC_API_KEY"):
@@ -478,7 +499,7 @@ def get_llm_config(db=None) -> LLMConfig | None:
             model=os.getenv("ANTHROPIC_MODEL", "claude-3-sonnet-20240229"),
             api_key=os.getenv("ANTHROPIC_API_KEY"),
             temperature=float(os.getenv("LLM_TEMPERATURE", "0.7")),
-            max_tokens=int(os.getenv("LLM_MAX_TOKENS", "2000"))
+            max_tokens=int(os.getenv("LLM_MAX_TOKENS", "2000")),
         )
 
     return None
@@ -510,5 +531,6 @@ def is_llm_available() -> bool:
         True if LLM can be used
     """
     return get_llm_config() is not None
+
 
 # Made with Bob

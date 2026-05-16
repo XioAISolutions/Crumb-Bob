@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 
 SECTION_RE = re.compile(r"^\[([A-Za-z0-9_.:/-]+)\]$")
 HEADER_RE = re.compile(r"^([A-Za-z0-9_.-]+)=(.*)$")
@@ -67,7 +67,10 @@ def parse_crumb(path: str | Path) -> tuple[CrumbDocument | None, list[Validation
 
     if not lines or lines[0].strip() != "BEGIN CRUMB":
         errors.append(ValidationError(source, "missing BEGIN CRUMB"))
-    if not lines or next((line.strip() for line in reversed(lines) if line.strip()), "") != "END CRUMB":
+    if (
+        not lines
+        or next((line.strip() for line in reversed(lines) if line.strip()), "") != "END CRUMB"
+    ):
         errors.append(ValidationError(source, "missing END CRUMB"))
 
     try:
@@ -131,7 +134,9 @@ def _refs_in(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-def _validate_document(doc: CrumbDocument, known_ids: set[str], validate_refs: bool) -> list[ValidationError]:
+def _validate_document(
+    doc: CrumbDocument, known_ids: set[str], validate_refs: bool
+) -> list[ValidationError]:
     errors: list[ValidationError] = []
     for header in ("v", "kind", "title", "source"):
         if not doc.headers.get(header):
@@ -153,14 +158,20 @@ def _validate_document(doc: CrumbDocument, known_ids: set[str], validate_refs: b
 
     for line in _nonempty(doc.sections.get("checks", [])):
         if not CHECK_RE.match(line):
-            errors.append(ValidationError(doc.path, f"invalid [checks] line, expected 'name :: status': {line}"))
+            errors.append(
+                ValidationError(
+                    doc.path, f"invalid [checks] line, expected 'name :: status': {line}"
+                )
+            )
 
     for line in _nonempty(doc.sections.get("handoff", [])):
         if not ID_RE.search(line):
             errors.append(ValidationError(doc.path, f"[handoff] line missing id=: {line}"))
         for dependency in _deps_in(line):
             if dependency not in known_ids:
-                errors.append(ValidationError(doc.path, f"unknown [handoff] dependency: {dependency}"))
+                errors.append(
+                    ValidationError(doc.path, f"unknown [handoff] dependency: {dependency}")
+                )
 
     for line in _nonempty(doc.sections.get("workflow", [])):
         if not re.match(r"^\d+[.)]\s+", line):
@@ -169,7 +180,9 @@ def _validate_document(doc: CrumbDocument, known_ids: set[str], validate_refs: b
             errors.append(ValidationError(doc.path, f"[workflow] line missing id=: {line}"))
         for dependency in _deps_in(line):
             if dependency not in known_ids:
-                errors.append(ValidationError(doc.path, f"unknown [workflow] dependency: {dependency}"))
+                errors.append(
+                    ValidationError(doc.path, f"unknown [workflow] dependency: {dependency}")
+                )
 
     return errors
 
@@ -191,7 +204,9 @@ def validate_paths(paths: list[Path]) -> ValidationReport:
         known_ids.update(_ids_in(doc.sections.get("workflow", [])))
 
     for doc in report.documents:
-        report.errors.extend(_validate_document(doc, known_ids, validate_refs=len(report.documents) > 1))
+        report.errors.extend(
+            _validate_document(doc, known_ids, validate_refs=len(report.documents) > 1)
+        )
     return report
 
 

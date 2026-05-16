@@ -8,19 +8,35 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Try to import rich, but gracefully fallback if not available
 try:
-    from rich.console import Console
-    from rich.table import Table
-    from rich.panel import Panel
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskProgressColumn
-    from rich.tree import Tree
     from rich import box
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.progress import BarColumn, Progress, SpinnerColumn, TaskProgressColumn, TextColumn
+    from rich.table import Table
+    from rich.tree import Tree
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
+
+
+# Severity → icon mapping. Used wherever we display severity labels.
+# Centralising here avoids three identical inline dicts.
+SEVERITY_ICONS: dict[str, str] = {
+    "critical": "🔴",
+    "high": "🟠",
+    "medium": "🟡",
+    "low": "🟢",
+}
+
+
+def severity_icon(severity: str) -> str:
+    """Return the icon for a severity label, defaulting to ⚪ for unknown values."""
+    return SEVERITY_ICONS.get(severity, "⚪")
 
 
 class CrumbBobUI:
@@ -33,6 +49,8 @@ class CrumbBobUI:
             use_rich: Whether to use rich library (if available)
         """
         self.use_rich = use_rich and RICH_AVAILABLE
+        self.console: Console | None
+        self.error_console: Console | None
         if self.use_rich:
             self.console = Console()
             self.error_console = Console(stderr=True)
@@ -71,12 +89,12 @@ class CrumbBobUI:
     def print_info(self, message: str):
         """Print info message."""
         if self.use_rich and self.console:
-            self.console.print(f"[blue]ℹ {message}[/blue]")
+            self.console.print(f"[blue]i {message}[/blue]")
         else:
-            print(f"ℹ {message}")
+            print(f"i {message}")
 
 
-def display_pack_summary(pack_dir: Path, files: list[Path], session_id: Optional[int] = None):
+def display_pack_summary(pack_dir: Path, files: list[Path], session_id: int | None = None):
     """Display beautiful pack generation summary.
 
     Args:
@@ -97,7 +115,7 @@ def display_pack_summary(pack_dir: Path, files: list[Path], session_id: Optional
             content,
             title="[bold green]✓ Pack Generated Successfully[/bold green]",
             border_style="green",
-            box=box.ROUNDED
+            box=box.ROUNDED,
         )
         ui.console.print(panel)
 
@@ -140,7 +158,7 @@ def display_validation_results(report: Any):
                 f"[green]All {len(report.documents)} CRUMB file(s) are valid[/green]",
                 title="[bold green]✓ Validation Passed[/bold green]",
                 border_style="green",
-                box=box.ROUNDED
+                box=box.ROUNDED,
             )
             ui.console.print(panel)
         else:
@@ -159,14 +177,13 @@ def display_validation_results(report: Any):
 
             ui.console.print(table)
             ui.print_error(f"Validation failed: {len(report.errors)} error(s)")
+    # Fallback to plain text
+    elif report.ok:
+        print(f"✓ OK: {len(report.documents)} CRUMB file(s) valid")
     else:
-        # Fallback to plain text
-        if report.ok:
-            print(f"✓ OK: {len(report.documents)} CRUMB file(s) valid")
-        else:
-            for error in report.errors:
-                print(error.format(), file=sys.stderr)
-            print(f"✗ FAILED: {len(report.errors)} validation error(s)", file=sys.stderr)
+        for error in report.errors:
+            print(error.format(), file=sys.stderr)
+        print(f"✗ FAILED: {len(report.errors)} validation error(s)", file=sys.stderr)
 
 
 def display_session_info(session: Any, files: list[Any], risks: list[Any], tasks: list[Any]):
@@ -192,7 +209,12 @@ def display_session_info(session: Any, files: list[Any], risks: list[Any], tasks
         if session.git_author:
             header += f"[cyan]Author:[/cyan] {session.git_author}\n"
 
-        panel = Panel(header, title="[bold]Session Details[/bold]", border_style="blue", box=box.ROUNDED)
+        panel = Panel(
+            header,
+            title="[bold]Session Details[/bold]",
+            border_style="blue",
+            box=box.ROUNDED,
+        )
         ui.console.print(panel)
 
         # Statistics table
@@ -213,7 +235,10 @@ def display_session_info(session: Any, files: list[Any], risks: list[Any], tasks
             for file in files[:10]:
                 path = getattr(file, "file_path", getattr(file, "path", ""))
                 size_bytes = getattr(file, "size_bytes", None)
-                detail = f"{size_bytes:,} bytes" if size_bytes is not None else f"{getattr(file, 'mention_count', 1)}x"
+                if size_bytes is not None:
+                    detail = f"{size_bytes:,} bytes"
+                else:
+                    detail = f"{getattr(file, 'mention_count', 1)}x"
                 files_table.add_row(path, detail)
             if len(files) > 10:
                 files_table.add_row(f"... and {len(files) - 10} more", "")
@@ -227,8 +252,7 @@ def display_session_info(session: Any, files: list[Any], risks: list[Any], tasks
             for risk in risks[:5]:
                 status_color = "red" if risk.status == "open" else "green"
                 risks_table.add_row(
-                    f"[{status_color}]{risk.status}[/{status_color}]",
-                    risk.description[:60]
+                    f"[{status_color}]{risk.status}[/{status_color}]", risk.description[:60]
                 )
             if len(risks) > 5:
                 risks_table.add_row("", f"... and {len(risks) - 5} more")
@@ -282,7 +306,7 @@ def display_sessions_table(sessions: list[Any]):
                 session.session_name or "—",
                 session.git_branch or "—",
                 str(session.file_count),
-                str(session.risk_count)
+                str(session.risk_count),
             )
 
         ui.console.print(table)
@@ -295,7 +319,15 @@ def display_sessions_table(sessions: list[Any]):
         for session in sessions:
             name = session.session_name or "(unnamed)"
             branch = session.git_branch or "-"
-            print(f"{session.id:<6} {session.timestamp[:19]:<20} {name[:24]:<25} {branch[:19]:<20} {session.file_count:<6} {session.risk_count:<6}")
+            row = (
+                f"{session.id:<6} "
+                f"{session.timestamp[:19]:<20} "
+                f"{name[:24]:<25} "
+                f"{branch[:19]:<20} "
+                f"{session.file_count:<6} "
+                f"{session.risk_count:<6}"
+            )
+            print(row)
 
 
 def display_insights(insights: list[Any]):
@@ -309,26 +341,19 @@ def display_insights(insights: list[Any]):
     if ui.use_rich and ui.console:
         for insight in insights:
             severity_colors = {
-                'low': 'blue',
-                'medium': 'yellow',
-                'high': 'orange3',
-                'critical': 'red'
+                "low": "blue",
+                "medium": "yellow",
+                "high": "orange3",
+                "critical": "red",
             }
-            severity_icons = {
-                'low': '🟢',
-                'medium': '🟡',
-                'high': '🟠',
-                'critical': '🔴'
-            }
-
-            color = severity_colors.get(insight.severity, 'white')
-            icon = severity_icons.get(insight.severity, '⚪')
+            color = severity_colors.get(insight.severity, "white")
+            icon = severity_icon(insight.severity)
 
             content = f"{insight.description}\n\n"
             content += f"[cyan]Type:[/cyan] {insight.insight_type}\n"
             content += f"[cyan]Confidence:[/cyan] {insight.confidence:.0%}\n"
 
-            if hasattr(insight, 'recommendations') and insight.recommendations:
+            if hasattr(insight, "recommendations") and insight.recommendations:
                 content += "\n[bold]Recommendations:[/bold]\n"
                 for rec in insight.recommendations[:3]:
                     content += f"  • {rec}\n"
@@ -338,25 +363,30 @@ def display_insights(insights: list[Any]):
                 title=f"{icon} [{color}]{insight.title}[/{color}]",
                 subtitle=f"Created: {insight.created_at[:19]}",
                 border_style=color,
-                box=box.ROUNDED
+                box=box.ROUNDED,
             )
             ui.console.print(panel)
     else:
         # Fallback to plain text
         for insight in insights:
-            severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(insight.severity, "⚪")
-            print(f"{severity_icon} [{insight.severity.upper()}] {insight.title}")
+            icon = severity_icon(insight.severity)
+            print(f"{icon} [{insight.severity.upper()}] {insight.title}")
             print(f"   Type: {insight.insight_type}")
             print(f"   Confidence: {insight.confidence:.0%}")
             print(f"   Created: {insight.created_at[:19]}")
-            if hasattr(insight, 'recommendations') and insight.recommendations:
+            if hasattr(insight, "recommendations") and insight.recommendations:
                 print("   Recommendations:")
                 for rec in insight.recommendations[:3]:
                     print(f"     • {rec}")
             print()
 
 
-def display_trends(stats: dict, hot_files: list[dict], recurring_risks: list[dict], commands: list[dict]):
+def display_trends(
+    stats: dict,
+    hot_files: list[dict],
+    recurring_risks: list[dict],
+    commands: list[dict],
+):
     """Display trend visualization.
 
     Args:
@@ -378,7 +408,7 @@ def display_trends(stats: dict, hot_files: list[dict], recurring_risks: list[dic
             stats_content,
             title="[bold]📊 CrumbBob Memory Trends[/bold]",
             border_style="blue",
-            box=box.ROUNDED
+            box=box.ROUNDED,
         )
         ui.console.print(panel)
 
@@ -388,7 +418,7 @@ def display_trends(stats: dict, hot_files: list[dict], recurring_risks: list[dic
             table.add_column("Count", justify="right", style="yellow")
             table.add_column("Path", style="cyan")
             for f in hot_files[:15]:
-                table.add_row(f"{f['session_count']}x", f['path'])
+                table.add_row(f"{f['session_count']}x", f["path"])
             ui.console.print(table)
 
         # Recurring risks table
@@ -398,11 +428,11 @@ def display_trends(stats: dict, hot_files: list[dict], recurring_risks: list[dic
             table.add_column("Status", style="cyan")
             table.add_column("Description", style="red")
             for r in recurring_risks[:10]:
-                status_color = "red" if r['status'] == "open" else "green"
+                status_color = "red" if r["status"] == "open" else "green"
                 table.add_row(
                     f"{r['session_count']}x",
                     f"[{status_color}]{r['status']}[/{status_color}]",
-                    r['description'][:60]
+                    r["description"][:60],
                 )
             ui.console.print(table)
 
@@ -412,7 +442,7 @@ def display_trends(stats: dict, hot_files: list[dict], recurring_risks: list[dic
             table.add_column("Count", justify="right", style="yellow")
             table.add_column("Command", style="cyan")
             for c in commands[:10]:
-                table.add_row(f"{c['total_mentions']}x", c['command'][:60])
+                table.add_row(f"{c['total_mentions']}x", c["command"][:60])
             ui.console.print(table)
     else:
         # Fallback to plain text
@@ -451,10 +481,13 @@ def display_query_results(result: Any):
     if ui.use_rich and ui.console:
         # Query info panel
         panel = Panel(
-            f"[cyan]Query:[/cyan] {result.explanation}\n[cyan]Results:[/cyan] {result.row_count} row(s)",
+            (
+                f"[cyan]Query:[/cyan] {result.explanation}\n"
+                f"[cyan]Results:[/cyan] {result.row_count} row(s)"
+            ),
             title="[bold]🔍 Query Results[/bold]",
             border_style="blue",
-            box=box.ROUNDED
+            box=box.ROUNDED,
         )
         ui.console.print(panel)
 
@@ -511,8 +544,7 @@ def display_patterns(patterns: list[Any]):
 
         for ptype, plist in sorted(by_type.items()):
             table = Table(
-                title=f"{ptype.replace('_', ' ').title()} ({len(plist)})",
-                box=box.ROUNDED
+                title=f"{ptype.replace('_', ' ').title()} ({len(plist)})", box=box.ROUNDED
             )
             table.add_column("Severity", style="cyan")
             table.add_column("Description", style="yellow")
@@ -520,14 +552,13 @@ def display_patterns(patterns: list[Any]):
             table.add_column("Frequency", justify="right", style="magenta")
 
             for pattern in plist[:10]:
-                severity_icons = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}
-                icon = severity_icons.get(pattern.severity, "⚪")
+                icon = severity_icon(pattern.severity)
 
                 table.add_row(
                     f"{icon} {pattern.severity}",
                     pattern.description[:60],
                     f"{pattern.confidence:.0%}",
-                    str(pattern.frequency)
+                    str(pattern.frequency),
                 )
 
             ui.console.print(table)
@@ -538,15 +569,15 @@ def display_patterns(patterns: list[Any]):
         # Fallback to plain text
         print(f"✓ Detected {len(patterns)} pattern(s)\n")
 
-        by_type: dict[str, list] = {}
+        fallback_by_type: dict[str, list] = {}
         for pattern in patterns:
-            by_type.setdefault(pattern.pattern_type, []).append(pattern)
+            fallback_by_type.setdefault(pattern.pattern_type, []).append(pattern)
 
-        for ptype, plist in sorted(by_type.items()):
+        for ptype, plist in sorted(fallback_by_type.items()):
             print(f"\n{ptype.replace('_', ' ').title()} ({len(plist)}):")
             for pattern in plist[:5]:
-                severity_icon = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}.get(pattern.severity, "⚪")
-                print(f"  {severity_icon} {pattern.description}")
+                icon = severity_icon(pattern.severity)
+                print(f"  {icon} {pattern.description}")
                 print(f"     Confidence: {pattern.confidence:.0%}, Frequency: {pattern.frequency}")
             if len(plist) > 5:
                 print(f"  ... and {len(plist) - 5} more")
@@ -567,7 +598,7 @@ def display_predictions(prediction: Any, prediction_type: str):
             "impact": "📊 Impact Prediction",
             "risks": "⚠️  Risk Prediction",
             "complexity": "🎯 Complexity Prediction",
-            "tests": "🧪 Test Recommendations"
+            "tests": "🧪 Test Recommendations",
         }
 
         content = f"[cyan]Confidence:[/cyan] {prediction.confidence:.0%}\n"
@@ -577,7 +608,7 @@ def display_predictions(prediction: Any, prediction_type: str):
             content,
             title=f"[bold]{title_map.get(prediction_type, 'Prediction')}[/bold]",
             border_style="blue",
-            box=box.ROUNDED
+            box=box.ROUNDED,
         )
         ui.console.print(panel)
 
@@ -591,9 +622,7 @@ def display_predictions(prediction: Any, prediction_type: str):
 
                 for pred in prediction.predictions[:10]:
                     table.add_row(
-                        pred['file'],
-                        f"{pred['confidence']:.0%}",
-                        str(pred['co_changes'])
+                        pred["file"], f"{pred['confidence']:.0%}", str(pred["co_changes"])
                     )
                 ui.console.print(table)
 
@@ -604,11 +633,11 @@ def display_predictions(prediction: Any, prediction_type: str):
                 table.add_column("Frequency", justify="right", style="yellow")
 
                 for pred in prediction.predictions[:10]:
-                    status_color = "red" if pred['status'] == "open" else "green"
+                    status_color = "red" if pred["status"] == "open" else "green"
                     table.add_row(
                         f"[{status_color}]{pred['status']}[/{status_color}]",
-                        pred['risk'][:60],
-                        f"{pred['frequency']}x"
+                        pred["risk"][:60],
+                        f"{pred['frequency']}x",
                     )
                 ui.console.print(table)
 
@@ -618,7 +647,7 @@ def display_predictions(prediction: Any, prediction_type: str):
                 table.add_column("Reason", style="yellow")
 
                 for pred in prediction.predictions:
-                    table.add_row(pred['test_file'], pred['reason'])
+                    table.add_row(pred["test_file"], pred["reason"])
                 ui.console.print(table)
         else:
             ui.print_warning("No predictions available")
@@ -631,7 +660,11 @@ def display_predictions(prediction: Any, prediction_type: str):
             if prediction_type == "impact":
                 print("Likely to be affected:")
                 for pred in prediction.predictions[:10]:
-                    print(f"  • {pred['file']} (confidence: {pred['confidence']:.0%}, {pred['co_changes']} co-changes)")
+                    print(
+                        f"  • {pred['file']} "
+                        f"(confidence: {pred['confidence']:.0%}, "
+                        f"{pred['co_changes']} co-changes)"
+                    )
             elif prediction_type == "risks":
                 print("Potential risks based on similar past changes:")
                 for pred in prediction.predictions[:10]:
@@ -655,13 +688,14 @@ def create_progress_bar(description: str = "Processing..."):
     Returns:
         Progress context manager or None if rich not available
     """
+    _ = description
     if RICH_AVAILABLE:
         return Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
             BarColumn(),
             TaskProgressColumn(),
-            console=Console()
+            console=Console(),
         )
     return None
 
@@ -675,12 +709,14 @@ def show_spinner(description: str = "Working..."):
     Returns:
         Progress context manager or None if rich not available
     """
+    _ = description
     if RICH_AVAILABLE:
         return Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
-            console=Console()
+            console=Console(),
         )
     return None
+
 
 # Made with Bob

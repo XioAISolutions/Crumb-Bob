@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import hashlib
 import json
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from textwrap import dedent
 
@@ -61,10 +61,7 @@ def _refs(*refs: str) -> str:
 
 def _source_hash(path: str, fallback_text: str) -> tuple[str, int]:
     source = Path(path)
-    if source.exists():
-        data = source.read_bytes()
-    else:
-        data = fallback_text.encode("utf-8")
+    data = source.read_bytes() if source.exists() else fallback_text.encode("utf-8")
     return hashlib.sha256(data).hexdigest(), len(data)
 
 
@@ -77,7 +74,9 @@ def _timestamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
-def _crumb(kind: str, title: str, sections: dict[str, str], extra: dict[str, str] | None = None) -> str:
+def _crumb(
+    kind: str, title: str, sections: dict[str, str], extra: dict[str, str] | None = None
+) -> str:
     headers = [
         ("v", "1.4"),
         ("kind", kind),
@@ -150,18 +149,39 @@ def _evidence(report: BobReport) -> str:
 
 def _base_pack(report: BobReport) -> list[PackFile]:
     files = _bullet(report.files[:16], "No specific files were named in the Bob report.")
-    commands = _bullet(report.commands[:12], "Run the repository's documented install, test, and build commands.")
-    risks = _checkbox(report.risks[:12], "Validate assumptions Bob could not prove from static repo context.")
-    tests = _checkbox(report.tests[:12], "Run lint, typecheck, tests, build, and smoke checks before merging.")
-    next_steps = _checkbox(report.next_steps[:12], "Pick the smallest high-value improvement Bob identified and ship it with tests.")
+    commands = _bullet(
+        report.commands[:12], "Run the repository's documented install, test, and build commands."
+    )
+    risks = _checkbox(
+        report.risks[:12], "Validate assumptions Bob could not prove from static repo context."
+    )
+    tests = _checkbox(
+        report.tests[:12], "Run lint, typecheck, tests, build, and smoke checks before merging."
+    )
+    next_steps = _checkbox(
+        report.next_steps[:12],
+        "Pick the smallest high-value improvement Bob identified and ship it with tests.",
+    )
 
     repo_workflow = _workflow(
         [
             ("Load `00_repo_genome.crumb` as the architecture map", "wf_load_genome", None),
-            ("Read `01_session_flight_recorder.crumb` for prior state", "wf_read_session", "wf_load_genome"),
-            ("Open `02_next_task.crumb` and select the first viable task", "wf_select_task", "wf_read_session"),
+            (
+                "Read `01_session_flight_recorder.crumb` for prior state",
+                "wf_read_session",
+                "wf_load_genome",
+            ),
+            (
+                "Open `02_next_task.crumb` and select the first viable task",
+                "wf_select_task",
+                "wf_read_session",
+            ),
             ("Run `03_test_plan.crumb` checks before merge", "wf_run_tests", "wf_select_task"),
-            ("Review `08_proof_chain.json` for hash-bound provenance", "wf_verify_proof", "wf_run_tests"),
+            (
+                "Review `08_proof_chain.json` for hash-bound provenance",
+                "wf_verify_proof",
+                "wf_run_tests",
+            ),
         ]
     )
     repo_handoff = _handoff(
@@ -195,15 +215,29 @@ def _base_pack(report: BobReport) -> list[PackFile]:
         },
         {
             "id": "repo-genome",
-            "refs": _refs("session-flight-recorder", "next-task", "test-plan", "risk-register", "agent-passport"),
+            "refs": _refs(
+                "session-flight-recorder",
+                "next-task",
+                "test-plan",
+                "risk-register",
+                "agent-passport",
+            ),
         },
     )
 
     session_handoff = _handoff(
         [
             ("Confirm Bob source report is present", "confirm_source", None),
-            ("Compare current repo state against captured actions", "compare_state", "confirm_source"),
-            ("Append new findings to a refreshed flight recorder", "refresh_flight_recorder", "compare_state"),
+            (
+                "Compare current repo state against captured actions",
+                "compare_state",
+                "confirm_source",
+            ),
+            (
+                "Append new findings to a refreshed flight recorder",
+                "refresh_flight_recorder",
+                "compare_state",
+            ),
         ]
     )
     session = _crumb(
@@ -250,7 +284,10 @@ def _base_pack(report: BobReport) -> list[PackFile]:
         "task",
         "Next Task from Bob Session",
         {
-            "goal": report.next_steps[0] if report.next_steps else "Implement the highest-value improvement identified by Bob.",
+            "goal": report.next_steps[0]
+            if report.next_steps
+            else "Implement the highest-value improvement identified by Bob.",
+            "bob_next_steps": next_steps,
             "context": f"{report.summary}\n\nFiles mentioned:\n{files}\n\nCommands captured:\n{commands}",
             "constraints": "\n".join(
                 [
@@ -263,7 +300,11 @@ def _base_pack(report: BobReport) -> list[PackFile]:
             "workflow": _workflow(
                 [
                     ("Confirm current repo state", "task_confirm_state", None),
-                    ("Implement the smallest useful change", "task_implement", "task_confirm_state"),
+                    (
+                        "Implement the smallest useful change",
+                        "task_implement",
+                        "task_confirm_state",
+                    ),
                     ("Run captured test plan", "task_test", "task_implement"),
                     ("Regenerate CrumbBob pack", "task_regenerate_pack", "task_test"),
                 ]
@@ -377,10 +418,22 @@ def _base_pack(report: BobReport) -> list[PackFile]:
             "workflow": _workflow(
                 [
                     ("Load Repo Genome before code changes", "agent_load_genome", None),
-                    ("Treat Flight Recorder as prior session state", "agent_load_session", "agent_load_genome"),
-                    ("Start with Next Task unless user overrides", "agent_start_task", "agent_load_session"),
+                    (
+                        "Treat Flight Recorder as prior session state",
+                        "agent_load_session",
+                        "agent_load_genome",
+                    ),
+                    (
+                        "Start with Next Task unless user overrides",
+                        "agent_start_task",
+                        "agent_load_session",
+                    ),
                     ("Run or update Test Plan", "agent_run_tests", "agent_start_task"),
-                    ("Update Risk Register and Proof Chain", "agent_update_memory", "agent_run_tests"),
+                    (
+                        "Update Risk Register and Proof Chain",
+                        "agent_update_memory",
+                        "agent_run_tests",
+                    ),
                 ]
             ),
             "script": dedent(
@@ -398,18 +451,25 @@ def _base_pack(report: BobReport) -> list[PackFile]:
                 [
                     ("Load agent passport", "load_agent_passport", None),
                     ("Follow replay prompt", "follow_replay_prompt", "load_agent_passport"),
-                    ("Regenerate proof chain after changes", "agent_refresh_proof", "follow_replay_prompt"),
+                    (
+                        "Regenerate proof chain after changes",
+                        "agent_refresh_proof",
+                        "follow_replay_prompt",
+                    ),
                 ]
             ),
         },
         {
             "id": "agent-passport",
-            "refs": _refs("repo-genome", "session-flight-recorder", "next-task", "test-plan", "risk-register"),
+            "refs": _refs(
+                "repo-genome", "session-flight-recorder", "next-task", "test-plan", "risk-register"
+            ),
         },
     )
 
-    replay = dedent(
-        f"""
+    replay = (
+        dedent(
+            f"""
         # Replay this IBM Bob session
 
         You are IBM Bob continuing from a previous repo-aware development session.
@@ -436,27 +496,32 @@ def _base_pack(report: BobReport) -> list[PackFile]:
         crumdbob doctor .
         ```
         """
-    ).strip() + "\n"
+        ).strip()
+        + "\n"
+    )
 
-    pr = "\n".join(
-        [
-            "# PR: Add CrumbBob replay pack",
-            "",
-            "## Summary",
-            "This PR adds a CrumbBob memory pack generated from an IBM Bob repository session.",
-            "",
-            "## What changed",
-            "- Added Repo Genome, Session Flight Recorder, Next Task, Test Plan, Risk Register, Agent Passport, Replay Prompt, PR Summary, and Proof Chain.",
-            "- Captured source evidence, continuation workflow, guardrails, capabilities, and CRUMB dependency links.",
-            "- Added hash-bound provenance so reviewers can trace generated files back to the Bob report.",
-            "",
-            "## Why",
-            "IBM Bob can understand a repository during a session. CrumbBob makes that understanding portable and replayable.",
-            "",
-            "## Validation",
-            tests,
-        ]
-    ).strip() + "\n"
+    pr = (
+        "\n".join(
+            [
+                "# PR: Add CrumbBob replay pack",
+                "",
+                "## Summary",
+                "This PR adds a CrumbBob memory pack generated from an IBM Bob repository session.",
+                "",
+                "## What changed",
+                "- Added Repo Genome, Session Flight Recorder, Next Task, Test Plan, Risk Register, Agent Passport, Replay Prompt, PR Summary, and Proof Chain.",
+                "- Captured source evidence, continuation workflow, guardrails, capabilities, and CRUMB dependency links.",
+                "- Added hash-bound provenance so reviewers can trace generated files back to the Bob report.",
+                "",
+                "## Why",
+                "IBM Bob can understand a repository during a session. CrumbBob makes that understanding portable and replayable.",
+                "",
+                "## Validation",
+                tests,
+            ]
+        ).strip()
+        + "\n"
+    )
 
     return [
         PackFile("00_repo_genome.crumb", repo_genome),
@@ -522,7 +587,9 @@ def generate_pack(report: BobReport, timestamp: str | None = None) -> list[PackF
     return [*generated, PackFile("08_proof_chain.json", proof)]
 
 
-def write_report_pack(report: BobReport, out_dir: str | Path, timestamp: str | None = None) -> list[Path]:
+def write_report_pack(
+    report: BobReport, out_dir: str | Path, timestamp: str | None = None
+) -> list[Path]:
     output = Path(out_dir)
     output.mkdir(parents=True, exist_ok=True)
     written = []
@@ -533,11 +600,15 @@ def write_report_pack(report: BobReport, out_dir: str | Path, timestamp: str | N
     return written
 
 
-def write_pack(report_path: str | Path, out_dir: str | Path, timestamp: str | None = None) -> list[Path]:
+def write_pack(
+    report_path: str | Path, out_dir: str | Path, timestamp: str | None = None
+) -> list[Path]:
     return write_report_pack(parse_bob_report(report_path), out_dir, timestamp=timestamp)
 
 
-def write_pack_from_directory(input_dir: str | Path, out_dir: str | Path, timestamp: str | None = None) -> list[Path]:
+def write_pack_from_directory(
+    input_dir: str | Path, out_dir: str | Path, timestamp: str | None = None
+) -> list[Path]:
     source = Path(input_dir)
     report_path = source / "bob-report.md"
     if not report_path.exists():

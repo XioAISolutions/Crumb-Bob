@@ -1,10 +1,10 @@
 """Configuration management for CrumbBob."""
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 from typing import Any
-
 
 DEFAULT_CONFIG = {
     "database_path": "~/.crumdbob/memory.db",
@@ -22,14 +22,14 @@ def get_config_path() -> Path:
 def load_config() -> dict[str, Any]:
     """Load configuration from file or return defaults."""
     config_path = get_config_path()
-    
+
     if not config_path.exists():
         return DEFAULT_CONFIG.copy()
-    
+
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
+        with config_path.open(encoding="utf-8") as f:
             config = json.load(f)
-        
+
         # Merge with defaults to ensure all keys exist
         merged = DEFAULT_CONFIG.copy()
         merged.update(config)
@@ -42,8 +42,8 @@ def save_config(config: dict[str, Any]) -> None:
     """Save configuration to file."""
     config_path = get_config_path()
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(config_path, "w", encoding="utf-8") as f:
+
+    with config_path.open("w", encoding="utf-8") as f:
         json.dump(config, f, indent=2)
 
 
@@ -56,23 +56,23 @@ def get_config_value(key: str) -> Any:
 def set_config_value(key: str, value: Any) -> None:
     """Set a single configuration value."""
     config = load_config()
-    
+
     # Validate key
     if key not in DEFAULT_CONFIG:
         raise ValueError(f"Unknown configuration key: {key}")
-    
+
     # Type validation
     expected_type = type(DEFAULT_CONFIG[key])
     if not isinstance(value, expected_type):
         # Try to convert
-        if expected_type == bool:
+        if expected_type is bool:
             if isinstance(value, str):
                 value = value.lower() in ("true", "yes", "1", "on")
             else:
                 value = bool(value)
-        elif expected_type == str:
+        elif expected_type is str:
             value = str(value)
-    
+
     config[key] = value
     save_config(config)
 
@@ -98,5 +98,6 @@ def is_git_integration_enabled() -> bool:
 def is_team_mode_enabled() -> bool:
     """Check if team mode is enabled."""
     return bool(get_config_value("team_mode"))
+
 
 # Made with Bob

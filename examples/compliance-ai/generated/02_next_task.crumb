@@ -9,6 +9,15 @@ refs=repo-genome,session-flight-recorder,test-plan,risk-register
 [goal]
 Gap: add a short replay prompt so Bob or another AI agent can continue from prior repo analysis.
 
+[bob_next_steps]
+- [ ] Gap: add a short replay prompt so Bob or another AI agent can continue from prior repo analysis.
+- [ ] Gap: add a PR summary template that turns Bob findings into a review-ready GitHub artifact.
+- [ ] Add CrumbBob-generated Repo Genome to preserve this analysis.
+- [ ] Add Session Flight Recorder so future Bob sessions know what was already discovered.
+- [ ] Add Replay Prompt for the next AI/dev session.
+- [ ] Add Risk Register and Test Plan as CRUMB handoffs.
+- [ ] Add PR Summary so Bob's work can be attached directly to GitHub review.
+
 [context]
 Bob analyzed the XIO Compliance Brain repository as a complex AI-assisted legal workbench. The repo is a Canadian compliance review system with document intake, task-specific legal reviewer personas, structured citation verification, approval gating, audit trails, and DOCX export.
 

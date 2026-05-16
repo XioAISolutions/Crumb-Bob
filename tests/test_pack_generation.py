@@ -1,12 +1,12 @@
 import hashlib
 import json
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 from crumdbob.cli import main
-from crumdbob.parser import parse_bob_report
 from crumdbob.packer import generate_pack, read_pr_summary, read_replay_prompt, write_pack
+from crumdbob.parser import parse_bob_report
 from crumdbob.validator import validate_target
 
 FIXTURE = Path("examples/compliance-ai/bob-report.md")
@@ -34,7 +34,10 @@ def test_generate_pack_contains_expected_files():
     assert "08_proof_chain.json" in names
     assert len(pack) == 9
     repo_genome = next(item.content for item in pack if item.path == "00_repo_genome.crumb")
-    assert "refs=session-flight-recorder,next-task,test-plan,risk-register,agent-passport" in repo_genome
+    assert (
+        "refs=session-flight-recorder,next-task,test-plan,risk-register,agent-passport"
+        in repo_genome
+    )
     assert "[workflow]" in repo_genome
     assert "[guardrails]" in repo_genome
     assert "[capabilities]" in repo_genome
@@ -175,4 +178,11 @@ def test_cli_validate_smoke(tmp_path):
         text=True,
     )
     assert result.returncode == 0
-    assert "OK: 6 CRUMB file(s) valid" in result.stdout
+    # Accept either the legacy plain output ("OK: 6 CRUMB file(s) valid") or
+    # the Rich-styled panel ("All 6 CRUMB file(s) are valid"). Both formats
+    # mean the same thing — which one runs depends on whether the optional
+    # `rich` dependency is installed.
+    assert (
+        "OK: 6 CRUMB file(s) valid" in result.stdout
+        or "All 6 CRUMB file(s) are valid" in result.stdout
+    )

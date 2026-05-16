@@ -1,5 +1,5 @@
 {
-  "crumdbob_version": "0.3.0",
+  "crumdbob_version": "0.3.1",
   "extracted_counts": {
     "commands": 9,
     "files": 12,
@@ -19,9 +19,9 @@
       "sha256": "e2bf80e3c657d3ef7516ed4d520d5d9a44408baa403f4a726bcda563526dfecd"
     },
     {
-      "bytes": 5347,
+      "bytes": 5913,
       "path": "02_next_task.crumb",
-      "sha256": "50796d9f6ba22d7cd8effacafd735b4f3e21ac38d9c10ba1d99b834f3463d69e"
+      "sha256": "4cc2722cee037e4ebe458c2cc336193686dc2ed3bef68526234bc8393cf7eb89"
     },
     {
       "bytes": 4307,
@@ -60,5 +60,5 @@
     "path": "examples/compliance-ai/bob-report.md",
     "sha256": "e39a650b3d990feda7c0f9172fee26886ae75313b04c7eef19b22a490290d0a7"
   },
-  "timestamp_utc": "2026-05-15T23:53:08Z"
+  "timestamp_utc": "2026-05-16T03:16:00Z"
 }

@@ -1,0 +1,67 @@
+# Reduce build context size and keep secrets out of layers.
+# Pattern syntax mirrors .gitignore.
+
+# Version control
+.git
+.gitignore
+.gitattributes
+.github
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.coverage
+.coverage.*
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+htmlcov/
+coverage.xml
+*.cover
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDE / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local data (NEVER ship developer databases in an image)
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+.crumdbob/
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+
+# Docs that bloat the context but aren't needed at runtime
+*.md
+!README.md
+docs/
+HACKATHON.md
+DEMO_SCRIPT.md
+ENHANCEMENTS.md
+IBM_BOB_HANDOFF.md
+BOB_REPORT.md
+CODEX_PROMPT.md
+
+# Pre-existing handoff/audit artifacts
+.ai-memory/

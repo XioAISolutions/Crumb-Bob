@@ -1,0 +1,52 @@
+# Run with: pre-commit run --all-files
+# Install hooks: pre-commit install --install-hooks
+#
+# These checks mirror what CI enforces so contributors get fast feedback
+# locally before pushing.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+        exclude: "^examples/compliance-ai/generated/"
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: end-of-file-fixer
+        exclude: '\.(crumb|patch)$|^examples/compliance-ai/generated/'
+      - id: trailing-whitespace
+        exclude: '\.(crumb|patch)$|^examples/compliance-ai/generated/'
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: detect-private-key
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.10
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.10.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - pydantic>=2.0
+          - types-setuptools
+        args: ["--config-file=pyproject.toml"]
+        # mypy can't see optional deps cleanly at pre-commit time; CI runs
+        # the full strict check with the dev extras installed.
+        pass_filenames: false
+        files: ^crumdbob/
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml", "-q"]
+        additional_dependencies: ["bandit[toml]"]
+        files: ^(crumdbob|web)/

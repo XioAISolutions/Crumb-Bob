@@ -2,27 +2,34 @@
 
 Provides persistent storage and querying of pack sessions across time.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
+import contextlib
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
+import subprocess  # nosec B404
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Literal
 
 from . import __version__
+from .migrations import SCHEMA_VERSION, run_migrations
 from .parser import BobReport, parse_bob_report
+from .validator import dependency_edges
 
-
-# Database schema version
-SCHEMA_VERSION = 1
+# Re-export so callers that imported SCHEMA_VERSION from this module continue
+# to work; the canonical definition lives in crumdbob.migrations.
+__all__ = ["SCHEMA_VERSION", "MemoryDatabase"]
+GIT_EXECUTABLE = "git"
 
 
 @dataclass
 class Session:
     """Represents a recorded pack session."""
+
     id: int
     timestamp: str
     session_name: str | None
@@ -42,6 +49,7 @@ class Session:
 @dataclass
 class PackRecord:
     """Represents a pack version record."""
+
     id: int
     session_id: int
     version: int
@@ -53,6 +61,7 @@ class PackRecord:
 @dataclass
 class FileRecord:
     """Represents a file mentioned in a session."""
+
     id: int
     session_id: int
     path: str
@@ -64,6 +73,7 @@ class FileRecord:
 @dataclass
 class CommandRecord:
     """Represents a command captured in a session."""
+
     id: int
     session_id: int
     command: str
@@ -75,6 +85,7 @@ class CommandRecord:
 @dataclass
 class RiskRecord:
     """Represents a risk identified in a session."""
+
     id: int
     session_id: int
     description: str
@@ -86,6 +97,7 @@ class RiskRecord:
 @dataclass
 class TaskRecord:
     """Represents a task/next step from a session."""
+
     id: int
     session_id: int
     description: str
@@ -96,10 +108,10 @@ class TaskRecord:
 
 class MemoryDatabase:
     """SQLite-based memory database for CrumbBob sessions."""
-    
+
     def __init__(self, db_path: str | Path):
         """Initialize database connection.
-        
+
         Args:
             db_path: Path to SQLite database file
         """
@@ -112,45 +124,35 @@ class MemoryDatabase:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA foreign_keys=ON")
         self.conn.execute("PRAGMA synchronous=NORMAL")
-        
+
     def close(self) -> None:
         """Close database connection, committing any pending work."""
         if self.conn:
-            try:
+            with contextlib.suppress(sqlite3.Error):
                 self.conn.commit()
-            except sqlite3.Error:
-                pass
             self.conn.close()
 
-    def __enter__(self) -> "MemoryDatabase":
+    def __enter__(self) -> MemoryDatabase:
         return self
 
-    def __exit__(self, exc_type: type | None, exc_val: BaseException | None, exc_tb: object) -> None:
+    def __exit__(
+        self, exc_type: type | None, exc_val: BaseException | None, exc_tb: object
+    ) -> None:
         if exc_type is not None:
-            try:
+            with contextlib.suppress(sqlite3.Error):
                 self.conn.rollback()
-            except sqlite3.Error:
-                pass
         self.close()
-    
-    def init_database(self) -> None:
-        """Initialize database schema with all tables and indexes."""
-        cursor = self.conn.cursor()
 
-        # Check for existing schema version before creating tables
-        try:
-            cursor.execute("SELECT value FROM metadata WHERE key = 'schema_version'")
-            row = cursor.fetchone()
-            if row:
-                existing_version = int(row["value"])
-                if existing_version > SCHEMA_VERSION:
-                    raise RuntimeError(
-                        f"Database schema v{existing_version} is newer than "
-                        f"this CrumbBob version (supports v{SCHEMA_VERSION}). "
-                        f"Please upgrade CrumbBob."
-                    )
-        except sqlite3.OperationalError:
-            pass  # metadata table doesn't exist yet — fresh database
+    def init_database(self) -> None:
+        """Initialize database schema with all tables and indexes.
+
+        Idempotent: safe to call on a fresh database or one that's already
+        at the latest schema. The CREATE TABLE IF NOT EXISTS statements
+        below establish the v1 baseline; ``run_migrations()`` then brings
+        the database up to ``SCHEMA_VERSION`` by applying any subsequent
+        migrations (audit_log table, etc.).
+        """
+        cursor = self.conn.cursor()
 
         # Metadata table
         cursor.execute("""
@@ -159,7 +161,7 @@ class MemoryDatabase:
                 value TEXT NOT NULL
             )
         """)
-        
+
         # Sessions table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS sessions (
@@ -180,7 +182,7 @@ class MemoryDatabase:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # Packs table (version history)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS packs (
@@ -194,7 +196,7 @@ class MemoryDatabase:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
         """)
-        
+
         # Files table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS files (
@@ -207,7 +209,7 @@ class MemoryDatabase:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
         """)
-        
+
         # Commands table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS commands (
@@ -220,7 +222,7 @@ class MemoryDatabase:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
         """)
-        
+
         # Risks table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS risks (
@@ -233,7 +235,7 @@ class MemoryDatabase:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
         """)
-        
+
         # Tasks table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
@@ -246,7 +248,7 @@ class MemoryDatabase:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
         """)
-        
+
         # Relationships table (for CRUMB refs)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS relationships (
@@ -258,7 +260,7 @@ class MemoryDatabase:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
             )
         """)
-        
+
         # Insights table (for future AI-generated insights)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS insights (
@@ -271,7 +273,7 @@ class MemoryDatabase:
                 FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE SET NULL
             )
         """)
-        
+
         # LLM cache table (for caching LLM responses)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS llm_cache (
@@ -285,7 +287,7 @@ class MemoryDatabase:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # LLM config table (for storing LLM provider configuration)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS llm_config (
@@ -299,7 +301,7 @@ class MemoryDatabase:
                 created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        
+
         # Create indexes for performance
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_timestamp ON sessions(timestamp)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_sessions_git_branch ON sessions(git_branch)")
@@ -311,20 +313,28 @@ class MemoryDatabase:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_risks_session_id ON risks(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_risks_status ON risks(status)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_risks_description ON risks(description)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status_description ON tasks(status, description)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tasks_status_description ON tasks(status, description)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_commands_command ON commands(command)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_session_id ON tasks(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_relationships_session_id ON relationships(session_id)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_relationships_session_id ON relationships(session_id)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_insights_session_id ON insights(session_id)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_cache_prompt_hash ON llm_cache(prompt_hash)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_cache_created_at ON llm_cache(created_at)")
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_llm_cache_prompt_hash ON llm_cache(prompt_hash)"
+        )
+        cursor.execute(
+            "CREATE INDEX IF NOT EXISTS idx_llm_cache_created_at ON llm_cache(created_at)"
+        )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_config_enabled ON llm_config(enabled)")
-        
+
         # Create views for common queries
         cursor.execute("""
             CREATE VIEW IF NOT EXISTS session_summary AS
-            SELECT 
+            SELECT
                 s.id,
                 s.timestamp,
                 s.session_name,
@@ -339,10 +349,10 @@ class MemoryDatabase:
             LEFT JOIN packs p ON s.id = p.session_id
             GROUP BY s.id
         """)
-        
+
         cursor.execute("""
             CREATE VIEW IF NOT EXISTS file_history AS
-            SELECT 
+            SELECT
                 f.path,
                 f.first_seen,
                 f.last_seen,
@@ -351,10 +361,10 @@ class MemoryDatabase:
             FROM files f
             GROUP BY f.path
         """)
-        
+
         cursor.execute("""
             CREATE VIEW IF NOT EXISTS risk_summary AS
-            SELECT 
+            SELECT
                 r.description,
                 r.status,
                 r.first_seen,
@@ -363,10 +373,10 @@ class MemoryDatabase:
             FROM risks r
             GROUP BY r.description, r.status
         """)
-        
+
         cursor.execute("""
             CREATE VIEW IF NOT EXISTS command_frequency AS
-            SELECT 
+            SELECT
                 c.command,
                 COUNT(DISTINCT c.session_id) as session_count,
                 SUM(c.mention_count) as total_mentions,
@@ -376,15 +386,14 @@ class MemoryDatabase:
             GROUP BY c.command
             ORDER BY total_mentions DESC
         """)
-        
-        # Store schema version
-        cursor.execute(
-            "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
-            ("schema_version", str(SCHEMA_VERSION))
-        )
-        
+
         self.conn.commit()
-    
+
+        # Bring schema up to current version (creates audit_log etc.).
+        # Migration #1 is a no-op (just marks the v1 baseline above as
+        # applied); later migrations add new tables idempotently.
+        run_migrations(self.conn)
+
     def record_session(
         self,
         report: BobReport,
@@ -395,7 +404,7 @@ class MemoryDatabase:
         crumdbob_version: str = __version__,
     ) -> int:
         """Record a complete pack session to database.
-        
+
         Args:
             report: Parsed Bob report
             pack_directory: Optional path to pack directory
@@ -403,97 +412,117 @@ class MemoryDatabase:
             git_context: Optional Git context (branch, commit, author)
             proof_chain_hash: Optional proof chain hash
             crumdbob_version: CrumbBob version used
-            
+
         Returns:
             Session ID
         """
         cursor = self.conn.cursor()
-        timestamp = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-        
+        timestamp = (
+            datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+        )
+
         git_context = git_context or {}
-        
+
         # Insert session
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO sessions (
                 timestamp, session_name, pack_version,
                 git_branch, git_commit, git_author,
                 source_report_path, source_report_hash, pack_directory,
                 file_count, command_count, risk_count, task_count
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            timestamp,
-            session_name,
-            1,
-            git_context.get("branch"),
-            git_context.get("commit"),
-            git_context.get("author"),
-            report.source_path,
-            self._hash_content(report.raw_text),
-            str(pack_directory) if pack_directory else None,
-            len(report.files),
-            len(report.commands),
-            len(report.risks),
-            len(report.next_steps),
-        ))
-        
+        """,
+            (
+                timestamp,
+                session_name,
+                1,
+                git_context.get("branch"),
+                git_context.get("commit"),
+                git_context.get("author"),
+                report.source_path,
+                self._hash_content(report.raw_text),
+                str(pack_directory) if pack_directory else None,
+                len(report.files),
+                len(report.commands),
+                len(report.risks),
+                len(report.next_steps),
+            ),
+        )
+
         session_id = cursor.lastrowid
         if session_id is None:
             raise RuntimeError("Failed to insert session record")
-        
+
         # Insert pack version
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO packs (
                 session_id, version, timestamp, crumdbob_version, proof_chain_hash
             ) VALUES (?, ?, ?, ?, ?)
-        """, (session_id, 1, timestamp, crumdbob_version, proof_chain_hash))
-        
+        """,
+            (session_id, 1, timestamp, crumdbob_version, proof_chain_hash),
+        )
+
         # Insert files
         for file_path in report.files:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO files (session_id, path, first_seen, last_seen, mention_count)
                 VALUES (?, ?, ?, ?, ?)
-            """, (session_id, file_path, timestamp, timestamp, 1))
-        
+            """,
+                (session_id, file_path, timestamp, timestamp, 1),
+            )
+
         # Insert commands
         for command in report.commands:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO commands (session_id, command, first_seen, last_seen, mention_count)
                 VALUES (?, ?, ?, ?, ?)
-            """, (session_id, command, timestamp, timestamp, 1))
-        
+            """,
+                (session_id, command, timestamp, timestamp, 1),
+            )
+
         # Insert risks
         for risk in report.risks:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO risks (session_id, description, first_seen, last_seen, status)
                 VALUES (?, ?, ?, ?, ?)
-            """, (session_id, risk, timestamp, timestamp, "open"))
-        
+            """,
+                (session_id, risk, timestamp, timestamp, "open"),
+            )
+
         # Insert tasks
         for task in report.next_steps:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO tasks (session_id, description, first_seen, last_seen, status)
                 VALUES (?, ?, ?, ?, ?)
-            """, (session_id, task, timestamp, timestamp, "pending"))
-        
+            """,
+                (session_id, task, timestamp, timestamp, "pending"),
+            )
+
         self.conn.commit()
         return session_id
-    
+
     def get_session(self, session_id: int) -> Session | None:
         """Retrieve session by ID.
-        
+
         Args:
             session_id: Session ID
-            
+
         Returns:
             Session object or None if not found
         """
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM sessions WHERE id = ?", (session_id,))
         row = cursor.fetchone()
-        
+
         if not row:
             return None
-        
+
         return Session(
             id=row["id"],
             timestamp=row["timestamp"],
@@ -510,7 +539,7 @@ class MemoryDatabase:
             risk_count=row["risk_count"],
             task_count=row["task_count"],
         )
-    
+
     def list_sessions(
         self,
         limit: int = 100,
@@ -521,7 +550,7 @@ class MemoryDatabase:
         end_date: str | None = None,
     ) -> list[Session]:
         """List all sessions with optional filters.
-        
+
         Args:
             limit: Maximum number of sessions to return
             offset: Number of sessions to skip
@@ -529,37 +558,37 @@ class MemoryDatabase:
             git_author: Filter by Git author
             start_date: Filter by start date (ISO format)
             end_date: Filter by end date (ISO format)
-            
+
         Returns:
             List of Session objects
         """
         cursor = self.conn.cursor()
-        
+
         query = "SELECT * FROM sessions WHERE 1=1"
         params: list[Any] = []
-        
+
         if git_branch:
             query += " AND git_branch = ?"
             params.append(git_branch)
-        
+
         if git_author:
             query += " AND git_author = ?"
             params.append(git_author)
-        
+
         if start_date:
             query += " AND timestamp >= ?"
             params.append(start_date)
-        
+
         if end_date:
             query += " AND timestamp <= ?"
             params.append(end_date)
-        
+
         query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
-        
+
         cursor.execute(query, params)
         rows = cursor.fetchall()
-        
+
         return [
             Session(
                 id=row["id"],
@@ -579,23 +608,26 @@ class MemoryDatabase:
             )
             for row in rows
         ]
-    
+
     def search_files(self, pattern: str) -> list[FileRecord]:
         """Find files across sessions matching pattern.
-        
+
         Args:
             pattern: SQL LIKE pattern (use % for wildcard)
-            
+
         Returns:
             List of FileRecord objects
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT * FROM files 
-            WHERE path LIKE ? 
+        cursor.execute(
+            """
+            SELECT * FROM files
+            WHERE path LIKE ?
             ORDER BY last_seen DESC
-        """, (pattern,))
-        
+        """,
+            (pattern,),
+        )
+
         return [
             FileRecord(
                 id=row["id"],
@@ -607,38 +639,38 @@ class MemoryDatabase:
             )
             for row in cursor.fetchall()
         ]
-    
+
     def search_risks(
         self,
         pattern: str | None = None,
         status: Literal["open", "mitigated", "accepted"] | None = None,
     ) -> list[RiskRecord]:
         """Find risks across sessions.
-        
+
         Args:
             pattern: Optional SQL LIKE pattern for description
             status: Optional status filter
-            
+
         Returns:
             List of RiskRecord objects
         """
         cursor = self.conn.cursor()
-        
+
         query = "SELECT * FROM risks WHERE 1=1"
         params: list[Any] = []
-        
+
         if pattern:
             query += " AND description LIKE ?"
             params.append(pattern)
-        
+
         if status:
             query += " AND status = ?"
             params.append(status)
-        
+
         query += " ORDER BY last_seen DESC"
-        
+
         cursor.execute(query, params)
-        
+
         return [
             RiskRecord(
                 id=row["id"],
@@ -650,19 +682,20 @@ class MemoryDatabase:
             )
             for row in cursor.fetchall()
         ]
-    
+
     def get_session_timeline(self, limit: int = 50) -> list[dict[str, Any]]:
         """Get chronological session history with key metrics.
-        
+
         Args:
             limit: Maximum number of sessions to return
-            
+
         Returns:
             List of session timeline entries
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
-            SELECT 
+        cursor.execute(
+            """
+            SELECT
                 id,
                 timestamp,
                 session_name,
@@ -675,22 +708,24 @@ class MemoryDatabase:
             FROM sessions
             ORDER BY timestamp DESC
             LIMIT ?
-        """, (limit,))
-        
+        """,
+            (limit,),
+        )
+
         return [dict(row) for row in cursor.fetchall()]
-    
+
     def get_session_files(self, session_id: int) -> list[FileRecord]:
         """Get all files for a session.
-        
+
         Args:
             session_id: Session ID
-            
+
         Returns:
             List of FileRecord objects
         """
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM files WHERE session_id = ?", (session_id,))
-        
+
         return [
             FileRecord(
                 id=row["id"],
@@ -702,19 +737,19 @@ class MemoryDatabase:
             )
             for row in cursor.fetchall()
         ]
-    
+
     def get_session_commands(self, session_id: int) -> list[CommandRecord]:
         """Get all commands for a session.
-        
+
         Args:
             session_id: Session ID
-            
+
         Returns:
             List of CommandRecord objects
         """
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM commands WHERE session_id = ?", (session_id,))
-        
+
         return [
             CommandRecord(
                 id=row["id"],
@@ -726,19 +761,19 @@ class MemoryDatabase:
             )
             for row in cursor.fetchall()
         ]
-    
+
     def get_session_risks(self, session_id: int) -> list[RiskRecord]:
         """Get all risks for a session.
-        
+
         Args:
             session_id: Session ID
-            
+
         Returns:
             List of RiskRecord objects
         """
         cursor = self.conn.cursor()
         cursor.execute("SELECT * FROM risks WHERE session_id = ?", (session_id,))
-        
+
         return [
             RiskRecord(
                 id=row["id"],
@@ -750,7 +785,7 @@ class MemoryDatabase:
             )
             for row in cursor.fetchall()
         ]
-    
+
     def get_session_tasks(self, session_id: int) -> list[TaskRecord]:
         """Get all tasks for a session.
 
@@ -811,13 +846,16 @@ class MemoryDatabase:
             List of dicts with path, session_count, total_mentions, first_seen, last_seen
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT path, session_count, total_mentions, first_seen, last_seen
             FROM file_history
             WHERE session_count >= ?
             ORDER BY session_count DESC, total_mentions DESC
             LIMIT ?
-        """, (min_sessions, limit))
+        """,
+            (min_sessions, limit),
+        )
         return [dict(row) for row in cursor.fetchall()]
 
     def get_recurring_risks(self, min_sessions: int = 2) -> list[dict[str, Any]]:
@@ -830,12 +868,15 @@ class MemoryDatabase:
             List of dicts with description, status, session_count, first_seen, last_seen
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT description, status, session_count, first_seen, last_seen
             FROM risk_summary
             WHERE session_count >= ?
             ORDER BY session_count DESC, last_seen DESC
-        """, (min_sessions,))
+        """,
+            (min_sessions,),
+        )
         return [dict(row) for row in cursor.fetchall()]
 
     def get_command_frequency(self, limit: int = 20) -> list[dict[str, Any]]:
@@ -848,11 +889,14 @@ class MemoryDatabase:
             List of dicts with command, session_count, total_mentions, first_seen, last_seen
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT command, session_count, total_mentions, first_seen, last_seen
             FROM command_frequency
             LIMIT ?
-        """, (limit,))
+        """,
+            (limit,),
+        )
         return [dict(row) for row in cursor.fetchall()]
 
     def get_stats(self) -> dict[str, int]:
@@ -880,7 +924,7 @@ class MemoryDatabase:
             "open_risks": open_risks,
             "unique_commands": unique_commands,
         }
-    
+
     def save_llm_config(
         self,
         provider: str,
@@ -888,10 +932,10 @@ class MemoryDatabase:
         api_key_env: str,
         temperature: float = 0.7,
         max_tokens: int = 2000,
-        enabled: bool = True
+        enabled: bool = True,
     ) -> int:
         """Save LLM configuration to database.
-        
+
         Args:
             provider: LLM provider (openai, anthropic, local)
             model: Model name
@@ -899,21 +943,26 @@ class MemoryDatabase:
             temperature: Temperature setting
             max_tokens: Max tokens setting
             enabled: Whether configuration is enabled
-            
+
         Returns:
             Configuration ID
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO llm_config (provider, model, api_key_env, temperature, max_tokens, enabled)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (provider, model, api_key_env, temperature, max_tokens, 1 if enabled else 0))
+        """,
+            (provider, model, api_key_env, temperature, max_tokens, 1 if enabled else 0),
+        )
         self.conn.commit()
+        if cursor.lastrowid is None:
+            raise RuntimeError("Failed to save LLM configuration")
         return cursor.lastrowid
-    
+
     def get_llm_config(self) -> dict[str, Any] | None:
         """Get active LLM configuration.
-        
+
         Returns:
             Configuration dict or None if not configured
         """
@@ -927,75 +976,85 @@ class MemoryDatabase:
         """)
         row = cursor.fetchone()
         return dict(row) if row else None
-    
+
     def update_llm_config(self, config_id: int, **kwargs: Any) -> None:
         """Update LLM configuration.
-        
+
         Args:
             config_id: Configuration ID
             **kwargs: Fields to update
         """
-        allowed_fields = {"provider", "model", "api_key_env", "temperature", "max_tokens", "enabled"}
+        allowed_fields = {
+            "provider",
+            "model",
+            "api_key_env",
+            "temperature",
+            "max_tokens",
+            "enabled",
+        }
         updates = {k: v for k, v in kwargs.items() if k in allowed_fields}
-        
+
         if not updates:
             return
-        
-        set_clause = ", ".join(f"{k} = ?" for k in updates.keys())
-        values = list(updates.values()) + [config_id]
-        
+
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        values = [*list(updates.values()), config_id]
+
         cursor = self.conn.cursor()
         # Columns are restricted to allowed_fields; values stay parameterized.
-        query = f"UPDATE llm_config SET {set_clause} WHERE id = ?"  # nosec B608
+        query = f"UPDATE llm_config SET {set_clause} WHERE id = ?"  # nosec B608  # noqa: S608
         cursor.execute(query, values)
         self.conn.commit()
-    
+
     def get_llm_cache_stats(self) -> dict[str, Any]:
         """Get LLM cache statistics.
-        
+
         Returns:
             Dict with cache stats
         """
         cursor = self.conn.cursor()
-        
+
         cursor.execute("SELECT COUNT(*) as n FROM llm_cache")
         total_cached = cursor.fetchone()["n"]
-        
+
         cursor.execute("SELECT SUM(tokens_used) as n FROM llm_cache WHERE tokens_used IS NOT NULL")
         total_tokens = cursor.fetchone()["n"] or 0
-        
+
         cursor.execute("""
             SELECT provider, COUNT(*) as count
             FROM llm_cache
             GROUP BY provider
         """)
         by_provider = {row["provider"]: row["count"] for row in cursor.fetchall()}
-        
+
         return {
             "total_cached": total_cached,
             "total_tokens_saved": total_tokens,
-            "by_provider": by_provider
+            "by_provider": by_provider,
         }
-    
+
     def clear_llm_cache(self, older_than_days: int | None = None) -> int:
         """Clear LLM cache.
-        
+
         Args:
             older_than_days: Only clear entries older than this many days (None = all)
-            
+
         Returns:
             Number of entries cleared
         """
         cursor = self.conn.cursor()
-        
+
         if older_than_days is None:
             cursor.execute("DELETE FROM llm_cache")
         else:
-            cursor.execute("""
+            cursor.execute(
+                """
                 DELETE FROM llm_cache
                 WHERE created_at < datetime('now', '-' || ? || ' days')
-            """, (older_than_days,))
-        
+            """,
+                (older_than_days,),
+            )
+
         deleted = cursor.rowcount
         self.conn.commit()
         return deleted
@@ -1022,16 +1081,16 @@ def get_default_db_path() -> Path:
 
 def init_database(db_path: str | Path | None = None) -> MemoryDatabase:
     """Initialize memory database with schema.
-    
+
     Args:
         db_path: Optional database path (default: ~/.crumdbob/memory.db)
-        
+
     Returns:
         Initialized MemoryDatabase instance
     """
     if db_path is None:
         db_path = get_default_db_path()
-    
+
     db = MemoryDatabase(db_path)
     db.init_database()
     return db
@@ -1043,17 +1102,17 @@ def record_pack_to_db(
     session_name: str | None = None,
 ) -> int:
     """Record a pack directory to the database.
-    
+
     Args:
         pack_dir: Path to pack directory
         db_path: Optional database path
         session_name: Optional custom session name
-        
+
     Returns:
         Session ID
     """
     pack_path = Path(pack_dir)
-    
+
     # Read proof chain once for all metadata
     proof_chain_path = pack_path / "08_proof_chain.json"
     proof_chain_hash = None
@@ -1069,7 +1128,7 @@ def record_pack_to_db(
             source_report_path = proof_data.get("source_report", {}).get("path")
         except (json.JSONDecodeError, OSError):
             pass
-    
+
     if source_report_path:
         # Preserve historical behaviour: proof chains record paths relative to
         # the cwd that ran `crumdbob pack`. Try that first, then fall back to
@@ -1081,11 +1140,13 @@ def record_pack_to_db(
         if raw_path.is_absolute():
             candidates.append(raw_path)
         else:
-            candidates.extend([
-                (Path.cwd() / raw_path),
-                (pack_path / raw_path),
-                (pack_path.parent / raw_path),
-            ])
+            candidates.extend(
+                [
+                    (Path.cwd() / raw_path),
+                    (pack_path / raw_path),
+                    (pack_path.parent / raw_path),
+                ]
+            )
 
         chosen: Path | None = None
         # Allow paths anywhere under cwd or under the pack's ancestor chain.
@@ -1109,10 +1170,10 @@ def record_pack_to_db(
 
     # Parse report
     report = parse_bob_report(source_report_path)
-    
+
     # Get Git context
     git_context = _get_git_context(pack_path)
-    
+
     # Record to database
     if db_path is None:
         db_path = get_default_db_path()
@@ -1133,7 +1194,6 @@ def record_pack_to_db(
         # Populate relationships from CRUMB dependency graph in the pack.
         if pack_path.is_dir():
             try:
-                from .validator import dependency_edges
                 edges, _ = dependency_edges(pack_path)
                 db.record_relationships(session_id, edges)
             except (OSError, ValueError):
@@ -1144,38 +1204,39 @@ def record_pack_to_db(
 
 def _get_git_context(path: Path) -> dict[str, str]:
     """Extract Git context (branch, commit, author) from directory."""
-    import subprocess  # nosec B404
-    
     context: dict[str, str] = {}
-    
+
     try:
         # Get branch
-        result = subprocess.run(  # nosec B603 B607
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        result = subprocess.run(  # nosec B603 B607  # noqa: S603
+            [GIT_EXECUTABLE, "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=path,
             capture_output=True,
+            check=False,
             text=True,
             timeout=5,
         )
         if result.returncode == 0:
             context["branch"] = result.stdout.strip()
-        
+
         # Get commit
-        result = subprocess.run(  # nosec B603 B607
-            ["git", "rev-parse", "HEAD"],
+        result = subprocess.run(  # nosec B603 B607  # noqa: S603
+            [GIT_EXECUTABLE, "rev-parse", "HEAD"],
             cwd=path,
             capture_output=True,
+            check=False,
             text=True,
             timeout=5,
         )
         if result.returncode == 0:
             context["commit"] = result.stdout.strip()[:12]
-        
+
         # Get author
-        result = subprocess.run(  # nosec B603 B607
-            ["git", "config", "user.name"],
+        result = subprocess.run(  # nosec B603 B607  # noqa: S603
+            [GIT_EXECUTABLE, "config", "user.name"],
             cwd=path,
             capture_output=True,
+            check=False,
             text=True,
             timeout=5,
         )
@@ -1183,7 +1244,8 @@ def _get_git_context(path: Path) -> dict[str, str]:
             context["author"] = result.stdout.strip()
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
-    
+
     return context
+
 
 # Made with Bob
