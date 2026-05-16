@@ -195,6 +195,11 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["ARG", "S", "PLR", "T20"]
+# test_api.py uses pytest.importorskip() at module scope before the
+# FastAPI/TestClient imports so the file degrades cleanly when the optional
+# [web] extra isn't installed. E402 (module-level import not at top) is the
+# right rule in general but wrong here.
+"tests/test_api.py" = ["ARG", "S", "PLR", "T20", "E402"]
 "examples/*" = ["ALL"]
 "crumdbob/cli.py" = ["T20", "PLR0911", "PLC0415"]   # CLI is allowed to print; lazy imports keep extras optional
 "crumdbob/ui.py" = ["T20"]    # Rich UI fallback uses print
