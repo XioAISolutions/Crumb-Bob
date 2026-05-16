@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-16 — Enterprise hardening & final polish
+
+### Documentation
+
+- **Comprehensive README.md rewrite** with engaging hero section, visual workflow diagrams, feature showcase, and complete documentation links
+- **SUBMISSION.md** created for judges and stakeholders with technical achievements, demo instructions, and evaluation criteria
+- **Enhanced documentation structure** with clear navigation and comprehensive guides
+
 ## [0.3.1] - 2026-05-15 — Enterprise hardening pass
 
 ### Added
