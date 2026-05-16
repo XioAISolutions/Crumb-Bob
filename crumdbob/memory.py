@@ -118,6 +118,7 @@ class MemoryDatabase:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
+        self._closed = False
         self.conn.row_factory = sqlite3.Row
         # Tune SQLite for concurrent reads + safer writes.
         # WAL: readers don't block writers; foreign_keys: enforce CASCADE on session deletes.
@@ -127,10 +128,19 @@ class MemoryDatabase:
 
     def close(self) -> None:
         """Close database connection, committing any pending work."""
-        if self.conn:
-            with contextlib.suppress(sqlite3.Error):
-                self.conn.commit()
+        if self._closed:
+            return
+        with contextlib.suppress(sqlite3.Error):
+            self.conn.commit()
+        with contextlib.suppress(sqlite3.Error):
             self.conn.close()
+        self._closed = True
+
+    def __del__(self) -> None:
+        if getattr(self, "_closed", True):
+            return
+        with contextlib.suppress(sqlite3.Error, AttributeError):
+            self.close()
 
     def __enter__(self) -> MemoryDatabase:
         return self
@@ -1208,7 +1218,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
 
     try:
         # Get branch
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             [GIT_EXECUTABLE, "rev-parse", "--abbrev-ref", "HEAD"],
             cwd=path,
             capture_output=True,
@@ -1220,7 +1230,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
             context["branch"] = result.stdout.strip()
 
         # Get commit
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             [GIT_EXECUTABLE, "rev-parse", "HEAD"],
             cwd=path,
             capture_output=True,
@@ -1232,7 +1242,7 @@ def _get_git_context(path: Path) -> dict[str, str]:
             context["commit"] = result.stdout.strip()[:12]
 
         # Get author
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             [GIT_EXECUTABLE, "config", "user.name"],
             cwd=path,
             capture_output=True,

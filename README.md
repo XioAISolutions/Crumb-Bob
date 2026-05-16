@@ -5,8 +5,8 @@
 **The Flight Recorder for IBM Bob Development Sessions**
 
 [![Version](https://img.shields.io/badge/version-0.3.1-blue.svg)](https://github.com/XioAISolutions/Crumb-Bob/releases)
-[![Tests](https://img.shields.io/badge/tests-206%20passing-brightgreen.svg)](https://github.com/XioAISolutions/Crumb-Bob/actions)
-[![Coverage](https://img.shields.io/badge/coverage-60%25+-green.svg)](https://github.com/XioAISolutions/Crumb-Bob)
+[![Tests](https://img.shields.io/badge/tests-290%20passing-brightgreen.svg)](https://github.com/XioAISolutions/Crumb-Bob/actions)
+[![Coverage](https://img.shields.io/badge/coverage-65%25-green.svg)](https://github.com/XioAISolutions/Crumb-Bob)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 
@@ -78,7 +78,7 @@ Intelligent insights powered by OpenAI and Anthropic:
 - 💬 **Pattern Explanation** - Natural language insights
 - 📋 **Actionable Recommendations** - Next steps based on history
 - 📊 **Trend Predictions** - Forecast future issues
-- 💾 **Response Caching** - Minimize API costs (99% cache hit rate)
+- 💾 **Response Caching** - Minimize API costs (cache hits for repeated queries)
 
 ### 📦 Smart Pack Generation
 Automated artifact collection and pack creation:
@@ -564,8 +564,8 @@ mypy crumdbob web
 
 ### Testing Guidelines
 
-- **206 tests** covering all major functionality
-- **60%+ code coverage** (enforced in CI)
+- **290 tests** covering all major functionality
+- **65% coverage (60% floor)** (enforced in CI)
 - Run `pytest -q` for quick test suite
 - Run `pytest --cov` for coverage report
 - All tests must pass before merging
@@ -618,7 +618,7 @@ CrumbBob is released under the **MIT License**. See [LICENSE](LICENSE) for detai
 
 ## 🚦 Status & Roadmap
 
-### Current Status: v0.3.1 (Production Ready)
+### Current Status: v0.3.1 (Submission Ready)
 
 ✅ **Core Features Complete:**
 - Pack generation and validation
@@ -630,8 +630,8 @@ CrumbBob is released under the **MIT License**. See [LICENSE](LICENSE) for detai
 - Enterprise hardening (security, logging, metrics)
 
 ✅ **Quality Metrics:**
-- 206 tests passing
-- 60%+ code coverage
+- 290 tests passing
+- 65% coverage (60% floor)
 - Type-checked with mypy
 - Security-scanned with Bandit
 - CI/CD with GitHub Actions
@@ -690,7 +690,7 @@ crumdbob replay examples/compliance-ai/generated
 cat examples/compliance-ai/generated/08_proof_chain.json
 
 # 6. Try web dashboard
-open web/index.html
+crumdbob serve --no-browser
 ```
 
 **Key Files to Inspect:**
@@ -699,7 +699,7 @@ open web/index.html
 - `examples/compliance-ai/generated/01_session_flight_recorder.crumb` - Audit trail
 - `examples/compliance-ai/generated/04_risk_register.crumb` - Unresolved risks
 - `examples/compliance-ai/generated/08_proof_chain.json` - Verification hashes
-- `web/index.html` - Interactive demo
+- `web/static/index.html` - Dashboard shell served by `crumdbob serve`
 
 ---
 
@@ -720,7 +720,7 @@ IBM Bob is incredibly powerful during a session—it understands your codebase, 
 
 ### The Impact
 
-- **For Developers**: 80% reduction in context-switching time
+- **For Developers**: Less repetitive context gathering
 - **For Teams**: Shared knowledge base that grows with every session
 - **For Organizations**: Institutional memory that survives turnover
 - **For AI Agents**: Persistent memory that makes them truly intelligent

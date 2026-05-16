@@ -5,7 +5,7 @@
 **Project Name:** CrumbBob  
 **Tagline:** The Flight Recorder for IBM Bob Development Sessions  
 **Category:** Developer Tools / AI Infrastructure  
-**Version:** 0.3.1 (Production Ready)
+**Version:** 0.3.1 (Submission Ready)
 
 ### The Problem We Solve
 
@@ -17,7 +17,7 @@ IBM Bob is incredibly powerful during a session—it understands your codebase, 
 
 CrumbBob transforms ephemeral IBM Bob sessions into **persistent, replayable memory packs** that capture everything Bob learned. Think of it as a DVR for AI development sessions—record, replay, and learn from every interaction.
 
-**Result:** 30-second automated artifact collection, 80% reduction in context-switching time, cross-session intelligence, and team-wide knowledge sharing.
+**Result:** 30-second automated artifact collection, less repetitive context gathering, cross-session intelligence, and team-wide knowledge sharing.
 
 ---
 
@@ -87,7 +87,7 @@ CrumbBob transforms ephemeral IBM Bob sessions into **persistent, replayable mem
 **Multi-provider LLM integration:**
 - OpenAI (GPT-4, GPT-3.5-turbo)
 - Anthropic (Claude 3 models)
-- Response caching (99% cache hit rate)
+- Response caching (cache hits for repeated queries)
 - Token counting and usage tracking
 - 6 analysis functions
 
@@ -108,7 +108,7 @@ CrumbBob transforms ephemeral IBM Bob sessions into **persistent, replayable mem
 ### 8. Workflow Automation
 
 **Three powerful quick wins:**
-- **Auto-Collect:** 95% time savings on artifact gathering
+- **Auto-Collect:** automated artifact collection
 - **Watch Mode:** Real-time pack regeneration during development
 - **Pack Diff:** Visual comparison for PR reviews
 
@@ -144,7 +144,7 @@ CrumbBob transforms ephemeral IBM Bob sessions into **persistent, replayable mem
 
 ### 5. Extensible Architecture
 
-**Built for growth:** Clean module boundaries, comprehensive type hints, 206 tests, 60%+ coverage.
+**Built for growth:** Clean module boundaries, comprehensive type hints, 290 tests, 65% coverage.
 
 **Impact:** Easy to extend with new features, integrate with other tools, and maintain long-term.
 
@@ -154,8 +154,8 @@ CrumbBob transforms ephemeral IBM Bob sessions into **persistent, replayable mem
 
 ### Code Quality
 
-- **206 tests** (all passing)
-- **60%+ code coverage** (enforced in CI)
+- **290 tests** (all passing)
+- **65% coverage (60% floor)** (enforced in CI)
 - **Type-checked** with mypy (strict mode)
 - **Security-scanned** with Bandit
 - **Linted** with Ruff (E/F/W/I/B/C4/UP/ARG/SIM/RET/PTH/PL/RUF/S/T20/TID)
@@ -166,7 +166,7 @@ CrumbBob transforms ephemeral IBM Bob sessions into **persistent, replayable mem
 - **Pack generation:** <5 seconds for typical Bob reports
 - **Database queries:** <100ms average response time
 - **UI rendering:** <50ms for most displays
-- **LLM caching:** 99% cache hit rate for repeated queries
+- **LLM caching:** cache hits for repeated queries
 - **Web API:** <100ms average response time
 
 ### Lines of Code
@@ -210,7 +210,7 @@ crumdbob replay examples/compliance-ai/generated
 cat examples/compliance-ai/generated/08_proof_chain.json
 
 # 6. Launch web dashboard
-open web/index.html
+crumdbob serve --no-browser
 ```
 
 ### Full Demo (15 minutes)
@@ -294,7 +294,7 @@ crumdbob llm status
 - ✅ 5-minute quick start
 
 **4. Code Quality (15 points)**
-- ✅ 206 tests, 60%+ coverage
+- ✅ 290 tests, 65% coverage
 - ✅ Type-checked, linted, security-scanned
 - ✅ Clean architecture
 - ✅ Comprehensive error handling
@@ -489,9 +489,9 @@ See [Enhancement Roadmap](docs/enhancement-roadmap.md) for detailed plans.
 ### For Individual Developers
 
 **Time Savings:**
-- 80% reduction in context-switching time
-- 95% reduction in artifact collection time
-- 60% faster onboarding
+- Less repetitive context gathering
+- Automated artifact collection
+- Faster onboarding
 
 **Quality Improvements:**
 - Predictive insights prevent issues
@@ -520,11 +520,11 @@ See [Enhancement Roadmap](docs/enhancement-roadmap.md) for detailed plans.
 - Reproducible analysis
 - Compliance-ready audit trails
 
-**ROI Calculation (10-person team):**
-- Time savings: $104,000/year
-- Faster onboarding: $16,000/year
-- Quality improvements: $50,000+/year
-- **Total: $170,000+/year**
+**Operational Value:**
+- Faster context restoration
+- Faster onboarding
+- Fewer repeated investigations
+- More defensible handoffs for audits and reviews
 
 ---
 
@@ -536,7 +536,7 @@ Every team using IBM Bob faces the same issue: context loss between sessions. Cr
 
 ### 2. Production-Ready Quality
 
-Not a prototype—206 tests, enterprise security, comprehensive documentation, Docker deployment. Ready to use today.
+Not a prototype—290 tests, enterprise security, comprehensive documentation, Docker deployment. Ready to use today.
 
 ### 3. Innovative Approach
 
@@ -556,7 +556,7 @@ Not just a hackathon project—a roadmap to v1.0 and beyond. Built to last.
 
 ### 7. Measurable Impact
 
-80% time savings, 60% faster onboarding, 40% reduction in recurring issues. Real metrics, real value.
+Faster context restoration, faster onboarding, and fewer recurring issues. Practical value without requiring a hosted service.
 
 ---
 
@@ -566,14 +566,14 @@ Not just a hackathon project—a roadmap to v1.0 and beyond. Built to last.
 
 - **GitHub:** https://github.com/XioAISolutions/Crumb-Bob
 - **Documentation:** [docs/](docs/)
-- **Demo Video:** [Coming soon]
-- **Live Demo:** [Coming soon]
+- **Demo Video:** Not hosted yet; use the local walkthrough above
+- **Live Demo:** Run locally with `crumdbob serve`
 
 ### Team
 
 **XIO AI Solutions**
 - Email: support@xioai.solutions
-- Website: [Coming soon]
+- Website: GitHub repository and local dashboard
 
 ### Acknowledgments
 
@@ -589,8 +589,8 @@ Special thanks to:
 - ✅ Complete README.md with comprehensive documentation
 - ✅ SUBMISSION.md for judges and stakeholders
 - ✅ Working demo with example data
-- ✅ 206 tests (all passing)
-- ✅ 60%+ code coverage
+- ✅ 290 tests (all passing)
+- ✅ 65% coverage (60% floor)
 - ✅ Type-checked with mypy
 - ✅ Security-scanned with Bandit
 - ✅ Linted with Ruff

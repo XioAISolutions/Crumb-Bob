@@ -15,11 +15,14 @@ from crumdbob.migrations import SCHEMA_VERSION, run_migrations
 @pytest.fixture
 def conn():
     """In-memory SQLite — fastest possible test setup."""
-    with sqlite3.connect(":memory:") as c:
+    c = sqlite3.connect(":memory:")
+    try:
         c.row_factory = sqlite3.Row
         # The runner needs a metadata table to track version state.
         c.execute("CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT)")
         yield c
+    finally:
+        c.close()
 
 
 class TestRunMigrations:

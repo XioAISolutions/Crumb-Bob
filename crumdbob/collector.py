@@ -32,7 +32,7 @@ def _run_git_command(
     """Run a git command and return (success, output)."""
     try:
         # Git arguments are fixed by CrumbBob callers; shell execution is disabled.
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603
             [GIT_EXECUTABLE, *args],
             cwd=cwd,
             capture_output=True,

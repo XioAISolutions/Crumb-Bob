@@ -10,6 +10,8 @@ import threading
 import time
 import uuid
 import webbrowser
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -89,12 +91,39 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
     Returns:
         Configured FastAPI application
     """
+    # Initialize database connection
+    if db_path is None:
+        db_path = get_default_db_path()
+
+    db = MemoryDatabase(db_path)
+    # Apply pending migrations (audit_log table etc.) on startup.
+    db.init_database()
+
+    query_engine = create_query_engine(db)
+    insights_engine = create_insights_engine(db)
+    pattern_detector = create_pattern_detector(db)
+    prediction_engine = create_prediction_engine(db)
+
+    # Audit logger shares the same SQLite file as session memory.
+    audit = AuditLogger(
+        db_path,
+        actor_resolver=lambda: "api",
+    )
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:
+            db.close()
+
     app = FastAPI(
         title="CrumbBob Dashboard",
         description="Interactive web dashboard for CrumbBob intelligence data",
         version=__version__,
         docs_url="/api/docs",
         redoc_url="/api/redoc",
+        lifespan=lifespan,
     )
 
     cors_origin_regex = os.getenv(
@@ -174,25 +203,6 @@ def create_app(db_path: str | Path | None = None) -> FastAPI:
                     content={"detail": {"error": "Missing or invalid X-API-Key header"}},
                 )
         return await call_next(request)
-
-    # Initialize database connection
-    if db_path is None:
-        db_path = get_default_db_path()
-
-    db = MemoryDatabase(db_path)
-    # Apply pending migrations (audit_log table etc.) on startup.
-    db.init_database()
-
-    query_engine = create_query_engine(db)
-    insights_engine = create_insights_engine(db)
-    pattern_detector = create_pattern_detector(db)
-    prediction_engine = create_prediction_engine(db)
-
-    # Audit logger shares the same SQLite file as session memory.
-    audit = AuditLogger(
-        db_path,
-        actor_resolver=lambda: "api",
-    )
 
     # Store in app state
     app.state.db = db

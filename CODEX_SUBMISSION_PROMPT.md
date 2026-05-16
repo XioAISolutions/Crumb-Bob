@@ -3,7 +3,7 @@
 ## Project Overview
 
 **Project Name:** CrumbBob  
-**Version:** 0.3.1 (Production Ready)  
+**Version:** 0.3.1 (Submission Ready)
 **Tagline:** The Flight Recorder for IBM Bob Development Sessions  
 **Repository:** https://github.com/XioAISolutions/Crumb-Bob  
 **License:** MIT  
@@ -17,7 +17,7 @@ CrumbBob transforms ephemeral IBM Bob sessions into persistent, replayable memor
 
 **The Solution:** CrumbBob creates permanent memory packs in CRUMB v1.4 format, stores them in a SQLite database, and provides intelligent cross-session analysis with pattern detection, predictive insights, and natural language queries.
 
-**The Impact:** 80% reduction in context-switching time, 95% reduction in artifact collection time, cross-session intelligence, and team-wide knowledge sharing.
+**The Impact:** Less repetitive context gathering, automated artifact collection, cross-session intelligence, and team-wide knowledge sharing.
 
 ## Technical Architecture
 
@@ -53,7 +53,7 @@ CrumbBob transforms ephemeral IBM Bob sessions into persistent, replayable memor
 
 **6. AI Integration**
 - **LLM Support** (`crumdbob/llm.py`) - OpenAI and Anthropic integration
-- **Response Caching** - 99% cache hit rate for cost optimization
+- **Response Caching** - reuses responses for repeated prompts to reduce cost
 - **6 Analysis Functions** - Session analysis, risk categorization, recommendations
 
 **7. Enterprise Hardening**
@@ -187,7 +187,7 @@ crumdbob predict tests src/auth/*.py
 
 ### 5. Workflow Automation
 
-**Auto-Collect (95% time savings):**
+**Auto-Collect (automated artifact collection):**
 ```bash
 crumdbob auto-collect --out ./generated
 # Scans Git repo, finds diffs/tests/logs, interactive selection
@@ -231,8 +231,8 @@ crumdbob diff ./pack-v1 ./pack-v2 --format=detailed
 
 ### Test Coverage
 
-- **206 tests** (all passing)
-- **60%+ code coverage** (enforced in CI)
+- **290 tests** (all passing)
+- **65% coverage (60% floor)** (enforced in CI)
 - **Test categories:**
   - Unit tests for pure functions
   - Integration tests for database operations
@@ -253,7 +253,7 @@ crumdbob diff ./pack-v1 ./pack-v2 --format=detailed
 - **Pack generation:** <5 seconds for typical Bob reports
 - **Database queries:** <100ms average response time
 - **UI rendering:** <50ms for most displays
-- **LLM caching:** 99% cache hit rate
+- **LLM caching:** cache hits for repeated queries
 - **Web API:** <100ms average response time
 
 ### Lines of Code
@@ -451,7 +451,7 @@ crumdbob replay examples/compliance-ai/generated
 cat examples/compliance-ai/generated/08_proof_chain.json
 
 # 6. Launch web demo
-open web/index.html
+crumdbob serve --no-browser
 ```
 
 ### Full Demo (15 minutes)
@@ -510,9 +510,9 @@ crumdbob llm status
 ## Business Value
 
 ### For Individual Developers
-- 80% reduction in context-switching time
-- 95% reduction in artifact collection time
-- 60% faster onboarding
+- Less repetitive context gathering
+- Automated artifact collection
+- Faster onboarding
 - Predictive insights prevent issues
 
 ### For Teams
@@ -526,7 +526,7 @@ crumdbob llm status
 - Institutional knowledge survives turnover
 - Compliance-ready audit trails
 - Measurable quality improvements
-- ROI: $170,000+/year for 10-person team
+- Reduces repeated analysis work for teams
 
 ## Future Roadmap
 
@@ -554,12 +554,12 @@ crumdbob llm status
 **GitHub:** https://github.com/XioAISolutions/Crumb-Bob  
 **License:** MIT  
 **Python:** 3.10+  
-**Status:** Production Ready (v0.3.1)
+**Status:** Submission Ready (v0.3.1)
 
 **Key Files:**
 - `crumdbob/` - Core package (7,600 lines)
 - `web/` - Web dashboard (1,500 lines)
-- `tests/` - Test suite (1,000 lines, 206 tests)
+- `tests/` - Test suite (1,000 lines, 290 tests)
 - `docs/` - Documentation (2,000+ lines)
 - `examples/` - Example packs and workflows
 

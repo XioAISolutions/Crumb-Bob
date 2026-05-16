@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SUBMISSION.md** created for judges and stakeholders with technical achievements, demo instructions, and evaluation criteria
 - **Enhanced documentation structure** with clear navigation and comprehensive guides
 
+### Fixed
+
+- Aligned submission docs with the verified 290-test / 65% coverage release gate and removed unsupported ROI/cache-rate claims.
+- Closed SQLite handles in API, LLM, and migration tests; moved the web API database cleanup onto FastAPI lifespan shutdown.
+- Annotated reviewed Git subprocess calls so Bandit reports no unresolved findings.
+
 ## [0.3.1] - 2026-05-15 — Enterprise hardening pass
 
 ### Added
@@ -300,7 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Runtime Performance**:
   - UI rendering: <50ms for most displays
   - Web API: <100ms average response time
-  - LLM caching: 99% cache hit rate for repeated queries
+  - LLM caching: cache hits for repeated queries
   - Database queries: Optimized with indexes
 
 ### Security
@@ -356,7 +362,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Quick Wins
 
-- **Auto-Collect**: Intelligent artifact discovery and collection (95% time savings)
+- **Auto-Collect**: Intelligent artifact discovery and collection
   - Git diff detection (staged/unstaged)
   - Test output discovery
   - CI log collection

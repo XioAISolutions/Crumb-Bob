@@ -24,7 +24,8 @@ def temp_db(tmp_path):
     db_path = tmp_path / "test.db"
     db = MemoryDatabase(db_path)
     db.init_database()
-    return db
+    yield db
+    db.close()
 
 
 @pytest.fixture

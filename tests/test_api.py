@@ -11,11 +11,11 @@ import pytest
 pytest.importorskip("fastapi")
 pytest.importorskip("httpx")
 
-from fastapi.testclient import TestClient  # noqa: E402
+from fastapi.testclient import TestClient
 
-from crumdbob.memory import MemoryDatabase, init_database  # noqa: E402
-from crumdbob.parser import BobReport  # noqa: E402
-from web.api.server import create_app  # noqa: E402
+from crumdbob.memory import MemoryDatabase, init_database
+from crumdbob.parser import BobReport
+from web.api.server import create_app
 
 
 @pytest.fixture
@@ -25,7 +25,8 @@ def temp_db():
         db_path = Path(f.name)
 
     # Initialize database
-    init_database(db_path)
+    db = init_database(db_path)
+    db.close()
 
     yield db_path
 
@@ -77,7 +78,8 @@ def populated_db(temp_db, sample_report):
 def client(populated_db):
     """Create test client with populated database."""
     app = create_app(populated_db)
-    return TestClient(app)
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def test_health_check(client):
@@ -350,21 +352,21 @@ def test_empty_database():
     with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
         db_path = Path(f.name)
 
-    init_database(db_path)
-    app = create_app(db_path)
-    client = TestClient(app)
-
+    db = init_database(db_path)
+    db.close()
     try:
-        # Should still work with empty database
-        response = client.get("/api/stats")
-        assert response.status_code == 200
-        data = response.json()
-        assert data["total_sessions"] == 0
+        app = create_app(db_path)
+        with TestClient(app) as client:
+            # Should still work with empty database
+            response = client.get("/api/stats")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_sessions"] == 0
 
-        response = client.get("/api/sessions")
-        assert response.status_code == 200
-        data = response.json()
-        assert len(data["sessions"]) == 0
+            response = client.get("/api/sessions")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data["sessions"]) == 0
     finally:
         if db_path.exists():
             db_path.unlink()
